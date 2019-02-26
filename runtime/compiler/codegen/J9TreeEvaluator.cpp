@@ -70,6 +70,7 @@ J9::TreeEvaluator::rdWrtbarHelperForFieldWatch(TR::Node *node, TR::CodeGenerator
       }
    // Generate instructions to call the VM helper and report the fieldwatch event.
    TR::TreeEvaluator::generateTestAndReportFieldWatchInstructions(cg, node, dataSnippet, isWrite, sideEffectRegister, valueReg);
+
    }
 
 TR::Register *
