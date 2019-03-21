@@ -163,3 +163,11 @@ CONFIGURE_ARGS += 'OMR_HOST_OS=linux'
 CONFIGURE_ARGS += 'OMR_HOST_ARCH=x86'
 CONFIGURE_ARGS += 'OMR_TARGET_DATASIZE=$(TEMP_TARGET_DATASIZE)'
 CONFIGURE_ARGS += 'OMR_TOOLCHAIN=gcc'
+
+# Add stack protect option for 64bit platform
+ifneq (,$(findstring -64,$(SPEC)))
+	CONFIGURE_ARGS+= \
+		'GLOBAL_CFLAGS=-fstack-protector' \
+		'GLOBAL_CXXFLAGS=-fstack-protector' \
+		'GLOBAL_CPPFLAGS=-fstack-protector'
+endif
