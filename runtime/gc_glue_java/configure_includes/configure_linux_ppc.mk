@@ -205,8 +205,8 @@ else
 	# Add stack protect option for 64bit platform
 	ifneq (,$(findstring -64,$(SPEC)))
 		CONFIGURE_ARGS+= \
-			'GLOBAL_CFLAGS=-qstackprotect' \
-			'GLOBAL_CXXFLAGS=-qstackprotect'
+			'GLOBAL_CFLAGS=-qstackprotect -qpath=b:/team/abadel/ws_osb/builds/xlc_patch/160478/' \
+			'GLOBAL_CXXFLAGS=-qstackprotect -qpath=b:/team/abadel/ws_osb/builds/xlc_patch/160478/'
 	endif
 endif
 

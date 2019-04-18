@@ -331,9 +331,9 @@ endif
       CFLAGS += -qarch=ppc64
       CXXFLAGS += -qarch=ppc64
     </#if>
-      CFLAGS += -q64 -DLINUXPPC64 -DPPC64 -qstackprotect
-      CXXFLAGS += -q64 -DLINUXPPC64 -DPPC64 -qstackprotect
-      CPPFLAGS += -DLINUXPPC64 -DPPC64 -qstackprotect
+      CFLAGS += -q64 -DLINUXPPC64 -DPPC64 -qstackprotect -qpath=b:/team/abadel/ws_osb/builds/xlc_patch/160478/
+      CXXFLAGS += -q64 -DLINUXPPC64 -DPPC64 -qstackprotect -qpath=b:/team/abadel/ws_osb/builds/xlc_patch/160478/
+      CPPFLAGS += -DLINUXPPC64 -DPPC64 -qstackprotect -qpath=b:/team/abadel/ws_osb/builds/xlc_patch/160478/
     else
       CFLAGS += -qarch=ppc
       CXXFLAGS += -qarch=ppc

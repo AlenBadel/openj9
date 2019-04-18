@@ -219,7 +219,7 @@ SOLINK_SLINK+=\
 #
 ifeq ($(HOST_BITS),64)
     CX_DEFINES+=LINUXPPC64
-    CX_FLAGS+=-q64 -qstackprotect
+    CX_FLAGS+=-q64 -qstackprotect -qpath=b:/team/abadel/ws_osb/builds/xlc_patch/160478/
     CX_ARCH?=ppc64
     SPP_DEFINES+=LINUXPPC64
     SPP_FLAGS+=-q64
