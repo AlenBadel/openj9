@@ -70,6 +70,8 @@
 #include "p/codegen/PPCTableOfConstants.hpp"
 #include "runtime/CodeCache.hpp"
 #include "env/VMJ9.h"
+#include "codegen/J9PPCWatchedStaticFieldSnippet.hpp"
+#include "codegen/J9PPCWatchedInstanceFieldSnippet.hpp"
 
 #define AIX_NULL_ZERO_AREA_SIZE 256
 #define NUM_PICS 3
@@ -77,6 +79,8 @@
 extern TR::Register *addConstantToLong(TR::Node * node, TR::Register *srcReg, int64_t value, TR::Register *trgReg, TR::CodeGenerator *cg);
 extern TR::Register *addConstantToInteger(TR::Node * node, TR::Register *trgReg, TR::Register *srcReg, int32_t value, TR::CodeGenerator *cg);
 
+static TR::InstOpCode::Mnemonic getLoadOrStoreFromDataType(TR::CodeGenerator *cg, TR::DataType dt, int32_t elementSize, bool isUnsigned, bool returnLoad);
+void loadFieldWatchSnippet(TR::CodeGenerator *cg, TR::Node *node, TR::Snippet *dataSnippet, TR::Register *snippetReg, TR::Register *scratchReg, bool isInstance);
 static const char *ppcSupportsReadMonitors = feGetEnv("TR_ppcSupportReadMonitors");
 
 extern uint32_t getPPCCacheLineSize();
@@ -921,20 +925,494 @@ static void VMwrtbarEvaluator(TR::Node *node, TR::Register *srcReg, TR::Register
    cg->stopUsingRegister(temp2Reg);
    }
 
-void
-J9::Power::TreeEvaluator::generateTestAndReportFieldWatchInstructions(TR::CodeGenerator *cg, TR::Node *node, TR::Snippet *dataSnippet, bool isWrite, TR::Register *sideEffectRegister, TR::Register *valueReg)
+ /*
+ * Get the number of register dependencies needed to generate the out-of-line sequence reporting field accesses
+ */
+static uint8_t getNumOfConditionsForReportFieldAccess(TR::Node *node, bool isResolved, bool isWrite, bool isInstanceField, TR::CodeGenerator *cg)
    {
-   TR_ASSERT_FATAL(false, "This helper implements platform specific code for Fieldwatch, which is currently not supported on Power platforms.\n");
+   // 1st arg is always the data block
+   uint8_t numOfConditions = 1;
+   
+   // Instance field report needs the base object
+   if (isInstanceField)
+      numOfConditions++; 
+
+   /* Field write report needs: 
+   i)  value being written 
+   ii) the reference to the value being written */
+   if (isWrite)
+      numOfConditions += 2;
+   
+   return numOfConditions;
+   }
+
+inline void generateLoadJ9Class(TR::Node* node, TR::Register* j9classReg, TR::Register *objReg, TR::CodeGenerator* cg)
+   {
+   #ifdef J9VM_INTERP_COMPRESSED_OBJECT_HEADER
+   generateTrg1MemInstruction(cg, TR::InstOpCode::lwz, node, j9classReg,
+      new (cg->trHeapMemory()) TR::MemoryReference(objReg, (int32_t) TR::Compiler->om.offsetOfObjectVftField(), 4, cg));
+   #else
+   generateTrg1MemInstruction(cg,TR::InstOpCode::Op_load, node, j9classReg,
+      new (cg->trHeapMemory()) TR::MemoryReference(objReg, (int32_t) TR::Compiler->om.offsetOfObjectVftField(), TR::Compiler->om.sizeofReferenceAddress(), cg));
+   #endif
+   TR::TreeEvaluator::generateVFTMaskInstruction(cg, node, j9classReg);
+   }
+
+
+/*
+ *
+ * Generates instructions to fill in the J9JITWatchedStaticFieldData.fieldAddress, J9JITWatchedStaticFieldData.fieldClass for static fields,
+ * and J9JITWatchedInstanceFieldData.offset for instance fields at runtime. Used for fieldwatch support.
+ * Fill in the J9JITWatchedStaticFieldData.fieldAddress, J9JITWatchedStaticFieldData.fieldClass for static field
+ * and J9JITWatchedInstanceFieldData.offset for instance field
+ *
+ * compare J9JITWatchedStaticFieldData.fieldAddress / J9JITWatchedInstanceFieldData.offset,  -1
+ * Branch not equal unresolvedLabel
+ * restart Label:
+ * ....
+ *
+ * unresolvedLabel:
+ * Store J9JITWatchedStaticFieldData.fieldClass J9Class (static field only)
+ * call helper
+ * Store J9JITWatchedStaticFieldData.fieldAddress / J9JITWatchedInstanceFieldData.offset  resultReg
+ * Branch to restartLabel
+ */
+void
+J9::Power::TreeEvaluator::generateFillInDataBlockSequenceForUnresolvedField(TR::CodeGenerator *cg, TR::Node *node, TR::Snippet *dataSnippet, bool isWrite, TR::Register *sideEffectRegister, TR::Register *dataSnippetRegister)
+   {
+   TR::SymbolReference *symRef = node->getSymbolReference();
+   bool is64Bit = TR::Compiler->target.is64Bit();
+   bool isStatic = symRef->getSymbol()->getKind() == TR::Symbol::IsStatic;
+   bool isInstanceField = node->getOpCode().isIndirect();
+
+   TR_RuntimeHelper helperIndex = isWrite? (isStatic ?  TR_jitResolveStaticFieldSetterDirect: TR_jitResolveFieldSetterDirect):
+                                           (isStatic ?  TR_jitResolveStaticFieldDirect: TR_jitResolveFieldDirect);
+   
+   TR::Linkage *linkage = cg->getLinkage(runtimeHelperLinkage(helperIndex));
+   auto linkageProperties = linkage->getProperties();
+   intptr_t offsetInDataBlock = isStatic ? offsetof(J9JITWatchedStaticFieldData, fieldAddress): offsetof(J9JITWatchedInstanceFieldData, offset);
+
+   TR::Compilation *comp = cg->comp();
+
+   TR::LabelSymbol* startLabel = generateLabelSymbol(cg);
+   TR::LabelSymbol* endLabel = generateLabelSymbol(cg);
+   TR::LabelSymbol* unresolvedLabel = generateLabelSymbol(cg);
+   startLabel->setStartInternalControlFlow();
+   endLabel->setEndInternalControlFlow();
+
+   TR::Register *cpIndexReg = cg->allocateRegister();
+   TR::Register *resultReg = cg->allocateRegister();
+   TR::Register *scratchReg = cg->allocateRegister();
+   TR::Register *cndReg = cg->allocateRegister(TR_CCR);
+
+   // Check if snippet has been loaded
+   if (isInstanceField && !static_cast<TR::J9PPCWatchedInstanceFieldSnippet *>(dataSnippet)->isSnippetLoaded() ||
+      (!isInstanceField && !static_cast<TR::J9PPCWatchedStaticFieldSnippet *>(dataSnippet)->isSnippetLoaded()))
+      loadFieldWatchSnippet(cg, node, dataSnippet, dataSnippetRegister, scratchReg, isInstanceField);
+
+   /* Setup Dependencies
+     dataSnippetRegister is always used during OOL sequence.
+     Requires two argument registers resultReg, and cpIndexReg. 
+     Static requires an extra arugment fieldClassReg */
+   uint8_t numOfConditions = isStatic? 4 : 3;
+   TR::RegisterDependencyConditions  *deps =  new (cg->trHeapMemory()) TR::RegisterDependencyConditions(numOfConditions, numOfConditions, cg->trMemory());
+   
+   deps->addPreCondition(dataSnippetRegister, TR::RealRegister::NoReg);
+   deps->addPostCondition(dataSnippetRegister, TR::RealRegister::NoReg);
+
+   TR_PPCOutOfLineCodeSection *generateReportOOL = new (cg->trHeapMemory()) TR_PPCOutOfLineCodeSection(unresolvedLabel, endLabel, cg);
+   cg->getPPCOutOfLineCodeSectionList().push_front(generateReportOOL);
+
+   generateLabelInstruction(cg, TR::InstOpCode::label, node, startLabel);   
+
+   //Compare J9JITWatchedInstanceFieldData.offset or J9JITWatchedStaticFieldData.fieldAddress (Depending on Instance of Static)
+   //Load value from dataSnippetRegister + offsetInDataBlock then compare and branch
+   generateTrg1MemInstruction(cg, TR::InstOpCode::Op_load, node, scratchReg,
+                     new (cg->trHeapMemory()) TR::MemoryReference(dataSnippetRegister, offsetInDataBlock, TR::Compiler->om.sizeofReferenceAddress(), cg));
+   generateTrg1Src1ImmInstruction(cg, TR::InstOpCode::andi_r, node, scratchReg, scratchReg, cndReg, -1);
+   generateConditionalBranchInstruction(cg, TR::InstOpCode::bne, node, unresolvedLabel, cndReg);
+   
+   generateReportOOL->swapInstructionListsWithCompilation();
+      {
+      generateLabelInstruction(cg, TR::InstOpCode::label, node, unresolvedLabel);
+
+      if (isStatic)
+         {
+         // Fill in J9JITWatchedStaticFieldData.fieldClass
+         TR::Register *fieldClassReg = NULL;
+
+         if (isWrite)
+            {
+            fieldClassReg = cg->allocateRegister();
+            generateTrg1MemInstruction(cg,TR::InstOpCode::Op_load, node, fieldClassReg,
+                           new (cg->trHeapMemory()) TR::MemoryReference(sideEffectRegister, cg->comp()->fej9()->getOffsetOfClassFromJavaLangClassField(), TR::Compiler->om.sizeofReferenceAddress(), cg));
+            }
+         else
+            {
+            fieldClassReg = sideEffectRegister;
+            }
+
+         // Store value to dataSnippetRegister + offset of fieldClass
+         if (is64Bit)
+            {
+            TR::MemoryReference *memRef = new (cg->trHeapMemory()) TR::MemoryReference(dataSnippetRegister, offsetof(J9JITWatchedStaticFieldData, fieldClass), TR::Compiler->om.sizeofReferenceAddress(), cg);
+            generateMemSrc1Instruction(cg, TR::InstOpCode::std, node, memRef, fieldClassReg);
+            }
+         else 
+            {
+            generateMemSrc1Instruction(cg, TR::InstOpCode::stw, node, new (cg->trHeapMemory()) TR::MemoryReference(dataSnippetRegister, offsetof(J9JITWatchedStaticFieldData, fieldClass), 4, cg), fieldClassReg->getLowOrder());
+            generateMemSrc1Instruction(cg, TR::InstOpCode::stw, node, new (cg->trHeapMemory()) TR::MemoryReference(dataSnippetRegister, offsetof(J9JITWatchedStaticFieldData, fieldClass) + 4, 4, cg), fieldClassReg->getHighOrder());
+            }
+         deps->addPreCondition(fieldClassReg, TR::RealRegister::NoReg);
+         deps->addPostCondition(fieldClassReg, TR::RealRegister::NoReg);
+         }
+
+      TR::ResolvedMethodSymbol *methodSymbol = node->getByteCodeInfo().getCallerIndex() == -1 ? cg->comp()->getMethodSymbol(): cg->comp()->getInlinedResolvedMethodSymbol(node->getByteCodeInfo().getCallerIndex());      
+
+      // Store cpAddressReg
+      // TODO: Replace when AOT TR_ConstantPool Discontiguous support is enabled
+      //loadAddressConstant(cg, node, (uintptrj_t)methodSymbol->getResolvedMethod()->constantPool(), resultReg, NULL, false, TR_ConstantPool);
+      loadAddressConstant(cg, node, (uintptrj_t)methodSymbol->getResolvedMethod()->constantPool(), resultReg);
+      loadConstant(cg, node, symRef->getCPIndex(), cpIndexReg);
+
+      // cpAddress is the first argument of VMHelper
+      deps->addPreCondition(resultReg, TR::RealRegister::gr3);
+      deps->addPostCondition(resultReg, TR::RealRegister::gr3);
+      // cpIndexReg is the second argument
+      deps->addPreCondition(cpIndexReg, TR::RealRegister::gr4);
+      deps->addPostCondition(cpIndexReg, TR::RealRegister::gr4);
+
+      // Generate helper address and branch
+      TR::SymbolReference *helperSym = comp->getSymRefTab()->findOrCreateRuntimeHelper(helperIndex, false, false, false);
+      TR::Instruction *call = generateDepImmSymInstruction(cg, TR::InstOpCode::bl, node, (uintptrj_t)helperSym->getMethodAddress(), deps, helperSym);
+      call->PPCNeedsGCMap(linkageProperties.getPreservedRegisterMapForGC());
+
+      /*
+      For instance field offset, the result returned by the vmhelper includes header size.
+      subtract the header size to get the offset needed by field watch helpers
+      */
+      if (!isStatic)
+         addConstantToInteger(node, resultReg, resultReg , -TR::Compiler->om.objectHeaderSizeInBytes(), cg);
+
+      // store result into J9JITWatchedStaticFieldData.fieldAddress / J9JITWatchedInstanceFieldData.offset
+      if (is64Bit) 
+         {
+         TR::MemoryReference* dataRef = new (cg->trHeapMemory()) TR::MemoryReference(dataSnippetRegister, offsetInDataBlock, TR::Compiler->om.sizeofReferenceAddress(), cg);
+         generateMemSrc1Instruction(cg, TR::InstOpCode::std, node, dataRef, resultReg);
+         }
+      else
+         {
+         generateMemSrc1Instruction(cg, TR::InstOpCode::stw, node, new (cg->trHeapMemory()) TR::MemoryReference(dataSnippetRegister, offsetInDataBlock, 4, cg), resultReg->getLowOrder());
+         generateMemSrc1Instruction(cg, TR::InstOpCode::stw, node, new (cg->trHeapMemory()) TR::MemoryReference(dataSnippetRegister, offsetInDataBlock + 4, 4, cg), resultReg->getHighOrder());
+         }
+      
+      generateLabelInstruction(cg, TR::InstOpCode::b, node, endLabel);
+      }
+   generateReportOOL->swapInstructionListsWithCompilation();
+
+   generateLabelInstruction(cg, TR::InstOpCode::label, node, endLabel);
+
+   cg->stopUsingRegister(scratchReg);
+   cg->stopUsingRegister(cndReg);
+   cg->stopUsingRegister(cpIndexReg);
+   cg->stopUsingRegister(resultReg);
+   }
+
+/*
+ * Generate the reporting field access helper call with required arguments
+ *
+ * jitReportInstanceFieldRead
+ * arg1 pointer to static data block
+ * arg2 object being read
+ *
+ * jitReportInstanceFieldWrite
+ * arg1 pointer to static data block
+ * arg2 object being written to
+ * arg3 pointer to value being written
+ *
+ * jitReportStaticFieldRead
+ * arg1 pointer to static data block
+ *
+ * jitReportStaticFieldWrite
+ * arg1 pointer to static data block
+ * arg2 pointer to value being written
+ *
+ */
+void generateReportFieldAccessOutlinedInstructions(TR::Node *node, TR::LabelSymbol *endLabel, TR::Register *dataBlockReg, bool isWrite, TR::RegisterDependencyConditions *deps, TR::CodeGenerator *cg, TR::Register *sideEffectRegister, TR::Register *valueReg)
+   {
+   
+   bool is64Bit = TR::Compiler->target.is64Bit();
+   bool isInstanceField = node->getSymbolReference()->getSymbol()->getKind() != TR::Symbol::IsStatic;
+   bool isResolved = !node->getSymbolReference()->isUnresolved();
+   J9Method *owningMethod = (J9Method *)node->getOwningMethod();
+
+   TR_RuntimeHelper helperIndex = isWrite ? (isInstanceField ? TR_jitReportInstanceFieldWrite: TR_jitReportStaticFieldWrite):
+                                            (isInstanceField ? TR_jitReportInstanceFieldRead: TR_jitReportStaticFieldRead);
+
+   TR::Linkage *linkage = cg->getLinkage(runtimeHelperLinkage(helperIndex));
+   auto linkageProperties = linkage->getProperties();
+   TR::Register *valueReferenceReg = NULL;
+   TR::MemoryReference *valueMR = NULL;
+
+   TR_BackingStore * location = NULL;
+   TR::Compilation * comp = cg->comp();
+   TR_J9VMBase *fej9 = (TR_J9VMBase *) (cg->fe());
+   
+   
+   /*
+    * For reporting field write, reference to the valueNode is needed so we need to store
+    * the value on to a stack location first and pass the stack location address as an arguement
+    * to the VM helper
+    */
+   if (isWrite)
+      {
+      bool isUnsigned = node->getOpCode().isUnsigned();
+      TR::DataType dt = node->getDataType();
+      int32_t elementSize = dt == TR::Address ? TR::Compiler->om.sizeofReferenceField() : TR::Symbol::convertTypeToSize(dt);
+      TR::InstOpCode::Mnemonic storeOp = getLoadOrStoreFromDataType(cg, dt, elementSize, isUnsigned, false);
+      location = cg->allocateSpill(node->getSize(), false, NULL);
+      valueMR = new (cg->trHeapMemory()) TR::MemoryReference(node, location->getSymbolReference(), node->getSize(), cg);
+
+      if (!valueReg->getRegisterPair())
+         {
+         generateMemSrc1Instruction(cg, storeOp, node, valueMR, valueReg);
+         }
+      else
+         {
+         generateMemSrc1Instruction(cg, TR::InstOpCode::stw, node, new (cg->trHeapMemory()) TR::MemoryReference(node, location->getSymbolReference(), 4, cg), valueReg->getLowOrder());
+         generateMemSrc1Instruction(cg, TR::InstOpCode::stw, node, new (cg->trHeapMemory()) TR::MemoryReference(node, location->getSymbolReference() + 4, 4, cg), valueReg->getHighOrder());
+         }
+      deps->addPreCondition(valueReg, TR::RealRegister::NoReg);
+      deps->addPostCondition(valueReg, TR::RealRegister::NoReg);
+
+      // store the stack location into a register
+      valueReferenceReg = cg->allocateRegister();
+      generateTrg1MemInstruction(cg, TR::InstOpCode::addi2, node, valueReferenceReg, valueMR);
+      }
+
+   // First Argument - DataBlock
+   deps->addPreCondition(dataBlockReg, TR::RealRegister::gr3);
+   deps->addPostCondition(dataBlockReg, TR::RealRegister::gr3);
+
+   // Second Argument
+   if (isInstanceField)
+      {
+      deps->addPreCondition(sideEffectRegister, TR::RealRegister::gr4);
+      deps->addPostCondition(sideEffectRegister, TR::RealRegister::gr4);
+      }
+   else if (isWrite)
+      {
+      deps->addPreCondition(valueReferenceReg, TR::RealRegister::gr4);
+      deps->addPostCondition(valueReferenceReg, TR::RealRegister::gr4);
+      }
+   
+   // Third Argument
+   if (isInstanceField && isWrite) 
+      {
+      deps->addPreCondition(valueReferenceReg, TR::RealRegister::gr5);
+      deps->addPostCondition(valueReferenceReg, TR::RealRegister::gr5);
+      }
+
+   // Generate branch instruction to jump into helper
+   TR::SymbolReference *helperSym = comp->getSymRefTab()->findOrCreateRuntimeHelper(helperIndex, false, false, false);
+   TR::Instruction *call = generateDepImmSymInstruction(cg, TR::InstOpCode::bl, node, (uintptrj_t)helperSym->getMethodAddress(), deps, helperSym);
+   call->PPCNeedsGCMap(linkageProperties.getPreservedRegisterMapForGC());
+
+   generateLabelInstruction(cg, TR::InstOpCode::b, node, endLabel);
+
+   // Free Spill if created
+   if (isWrite)
+      cg->freeSpill(location, node->getSize(), 0);
+
+   if (valueReferenceReg != NULL)
+      cg->stopUsingRegister(valueReferenceReg);
+   }
+
+void loadFieldWatchSnippet(TR::CodeGenerator *cg, TR::Node *node, TR::Snippet *dataSnippet, TR::Register *snippetReg, TR::Register *scratchReg, bool isInstanceField)
+   {
+   int32_t beginIndex = PTOC_FULL_INDEX;
+
+   // Attempt to request a TOC Offset on 64bit
+   if (TR::Compiler->target.is64Bit())
+      {
+      beginIndex = TR_PPCTableOfConstants::allocateChunk(1, cg);
+      if (beginIndex != PTOC_FULL_INDEX)
+         beginIndex *= TR::Compiler->om.sizeofReferenceAddress();
+      
+      if (!isInstanceField)
+         {
+         static_cast<TR::J9PPCWatchedStaticFieldSnippet *>(dataSnippet)->setTOCOffset(beginIndex);
+         }
+      else
+         {
+         static_cast<TR::J9PPCWatchedInstanceFieldSnippet *>(dataSnippet)->setTOCOffset(beginIndex);
+         }
+      }
+
+   // If we've ran out of space within the TOC, or 32 bit then generate nibbles
+   if (TR::Compiler->target.is32Bit() || beginIndex == PTOC_FULL_INDEX)
+      {
+      TR::Instruction *q[4];
+      fixedSeqMemAccess(cg, node, 0, q, snippetReg, scratchReg, TR::InstOpCode::Op_loadu, TR::Compiler->om.sizeofReferenceAddress(), NULL, snippetReg);
+
+      if (!isInstanceField)
+         {
+         static_cast<TR::J9PPCWatchedStaticFieldSnippet *>(dataSnippet)->setLowerInstruction(q[3]);
+         static_cast<TR::J9PPCWatchedStaticFieldSnippet *>(dataSnippet)->setLowerInstruction(q[0]);
+         }
+      else
+         {
+         static_cast<TR::J9PPCWatchedInstanceFieldSnippet *>(dataSnippet)->setLowerInstruction(q[3]);
+         static_cast<TR::J9PPCWatchedInstanceFieldSnippet *>(dataSnippet)->setLowerInstruction(q[0]);
+         }
+      }
+
+   // Generate instructions to load from TOC
+   if (beginIndex != PTOC_FULL_INDEX)
+      {
+      if (beginIndex<LOWER_IMMED || beginIndex>UPPER_IMMED)
+         {
+         generateTrg1Src1ImmInstruction(cg, TR::InstOpCode::addis, node, scratchReg, cg->getTOCBaseRegister(), HI_VALUE(beginIndex));
+         generateTrg1MemInstruction(cg,TR::InstOpCode::Op_load, node, snippetReg, new (cg->trHeapMemory()) TR::MemoryReference(scratchReg, LO_VALUE(beginIndex), TR::Compiler->om.sizeofReferenceAddress(), cg));
+         }
+      else
+         {
+         generateTrg1MemInstruction(cg,TR::InstOpCode::Op_load, node, snippetReg, new (cg->trHeapMemory()) TR::MemoryReference(cg->getTOCBaseRegister(), beginIndex, TR::Compiler->om.sizeofReferenceAddress(), cg));   
+         }
+      }
+      
+   // Loaded Snippet
+   if (!isInstanceField)
+      {
+      static_cast<TR::J9PPCWatchedStaticFieldSnippet *>(dataSnippet)->loadSnippet();
+      }
+   else
+      {
+      static_cast<TR::J9PPCWatchedInstanceFieldSnippet *>(dataSnippet)->loadSnippet();
+      }
+   }
+
+TR::Snippet * 
+J9::Power::TreeEvaluator::getFieldWatchInstanceSnippet(TR::CodeGenerator *cg, TR::Node *node, J9Method *m, UDATA loc, UDATA os)
+   {
+   return new (cg->trHeapMemory()) TR::J9PPCWatchedInstanceFieldSnippet(cg, node, m, loc, os);
+   }
+
+TR::Snippet * 
+J9::Power::TreeEvaluator::getFieldWatchStaticSnippet(TR::CodeGenerator *cg, TR::Node *node, J9Method *m, UDATA loc, void *fieldAddress, J9Class *fieldClass)
+   {
+   return new (cg->trHeapMemory()) TR::J9PPCWatchedStaticFieldSnippet(cg, node, m, loc, fieldAddress, fieldClass);
    }
 
 void
-J9::Power::TreeEvaluator::generateFillInDataBlockSequenceForUnresolvedField(TR::CodeGenerator *cg, TR::Node *node, TR::Snippet *dataSnippet, bool isWrite, TR::Register *sideEffectRegister)
+J9::Power::TreeEvaluator::generateTestAndReportFieldWatchInstructions(TR::CodeGenerator *cg, TR::Node *node, TR::Snippet *dataSnippet, bool isWrite, TR::Register *sideEffectRegister, TR::Register *valueReg, TR::Register *dataSnippetRegister)
    {
-   TR_ASSERT_FATAL(false, "This helper implements platform specific code for Fieldwatch, which is currently not supported on Power platforms.\n");
+   bool is64Bit = TR::Compiler->target.is64Bit();
+   bool isResolved = !node->getSymbolReference()->isUnresolved();
+   bool isInstanceField = node->getOpCode().isIndirect();
+   bool isAOTCompile = cg->comp()->compileRelocatableCode();
+   TR::Compilation *comp = cg->comp();
+   TR_J9VMBase *fej9 = (TR_J9VMBase *)(cg->fe());
+
+   TR::Register *scratchReg = cg->allocateRegister();
+
+   // Check if snippet has been loaded
+   if (isInstanceField && !static_cast<TR::J9PPCWatchedInstanceFieldSnippet *>(dataSnippet)->isSnippetLoaded() ||
+      (!isInstanceField && !static_cast<TR::J9PPCWatchedStaticFieldSnippet *>(dataSnippet)->isSnippetLoaded()))
+      loadFieldWatchSnippet(cg, node, dataSnippet, dataSnippetRegister, scratchReg, isInstanceField);
+
+   TR::Register *fieldClassReg = cg->allocateRegister();
+   TR::MemoryReference *classFlagsMemRef = NULL;
+   TR::Register *cndReg = cg->allocateRegister(TR_CCR);
+
+   TR::LabelSymbol* startLabel = generateLabelSymbol(cg);
+   TR::LabelSymbol* endLabel = generateLabelSymbol(cg);
+   TR::LabelSymbol* fieldReportLabel = generateLabelSymbol(cg);
+   startLabel->setStartInternalControlFlow();
+   endLabel->setEndInternalControlFlow();
+
+   generateLabelInstruction(cg, TR::InstOpCode::label, node, startLabel);
+
+   uint8_t numOfConditions = getNumOfConditionsForReportFieldAccess(node, isResolved, isWrite,isInstanceField, cg);
+   numOfConditions++;
+   TR::RegisterDependencyConditions  *deps =  new (cg->trHeapMemory())TR::RegisterDependencyConditions(numOfConditions, numOfConditions, cg->trMemory());
+
+   TR_PPCOutOfLineCodeSection *generateReportOOL = new (cg->trHeapMemory()) TR_PPCOutOfLineCodeSection(fieldReportLabel, endLabel, cg);
+   cg->getPPCOutOfLineCodeSectionList().push_front(generateReportOOL);
+   
+   // Load fieldClass
+   if (isInstanceField)
+      {
+      generateLoadJ9Class(node, fieldClassReg, sideEffectRegister, cg);
+      }
+   else if (isResolved)
+      {
+      /* During Non-AOT compilation the fieldClass has been populated inside the dataSnippet during compilation. 
+      During AOT compilation the fieldClass must be loaded from the snippet. The fieldClass in an AOT body is invalid. */
+      if (isAOTCompile)
+         {
+         // Load FieldClass from snippet
+         generateTrg1MemInstruction(cg,TR::InstOpCode::Op_load, node, fieldClassReg,
+                           new (cg->trHeapMemory()) TR::MemoryReference(dataSnippetRegister, offsetof(J9JITWatchedStaticFieldData, fieldClass),
+                           TR::Compiler->om.sizeofReferenceAddress(), cg));
+         }
+      else
+         {
+         J9Class * fieldClass = static_cast<TR::J9PPCWatchedStaticFieldSnippet *>(dataSnippet)->getFieldClass();
+         loadAddressConstant(cg, node, reinterpret_cast<uintptrj_t>(fieldClass), fieldClassReg);
+         }
+      }
+   else
+      {
+      // Unresolved 
+      if (isWrite)
+         {
+         generateTrg1MemInstruction(cg,TR::InstOpCode::Op_load, node, fieldClassReg,
+               new (cg->trHeapMemory()) TR::MemoryReference(sideEffectRegister, fej9->getOffsetOfClassFromJavaLangClassField(), TR::Compiler->om.sizeofReferenceAddress(), cg));
+         }
+      else
+         {
+         generateTrg1Src2Instruction(cg, TR::InstOpCode::OR, node, fieldClassReg, sideEffectRegister, sideEffectRegister);
+         }
+      } 
+
+   classFlagsMemRef = new (cg->trHeapMemory()) TR::MemoryReference(fieldClassReg, static_cast<uintptrj_t>(fej9->getOffsetOfClassFlags()),TR::Compiler->om.sizeofReferenceAddress(), cg);
+   
+   generateTrg1MemInstruction(cg,TR::InstOpCode::Op_load, node, scratchReg, classFlagsMemRef);
+   generateTrg1Src1ImmInstruction(cg, TR::InstOpCode::andi_r, node, scratchReg, scratchReg, cndReg, J9ClassHasWatchedFields);
+   generateConditionalBranchInstruction(cg, TR::InstOpCode::bne, node, fieldReportLabel, cndReg);
+
+   deps->addPreCondition(sideEffectRegister, TR::RealRegister::NoReg);
+   deps->addPostCondition(sideEffectRegister, TR::RealRegister::NoReg);
+
+   generateReportOOL->swapInstructionListsWithCompilation();
+      {
+      generateLabelInstruction(cg, TR::InstOpCode::label, node, fieldReportLabel);
+      generateReportFieldAccessOutlinedInstructions(node, endLabel, dataSnippetRegister, isWrite, deps, cg, sideEffectRegister, valueReg);
+      }
+   generateReportOOL->swapInstructionListsWithCompilation();
+
+   generateLabelInstruction(cg, TR::InstOpCode::label, node, endLabel);
+   
+   cg->stopUsingRegister(cndReg);
+   cg->stopUsingRegister(scratchReg);
+   cg->stopUsingRegister(fieldClassReg);
+
+   if (valueReg != NULL)
+      cg->stopUsingRegister(valueReg);
+   cg->machine()->setLinkRegisterKilled(true);
+
    }
 
 TR::Register *J9::Power::TreeEvaluator::awrtbarEvaluator(TR::Node *node, TR::CodeGenerator *cg)
    {
+   TR::Register *valueReg = cg->evaluate(node->getFirstChild());
+   TR::Register *sideEffectRegister = cg->evaluate(node->getSecondChild());  
+   if (cg->comp()->getOption(TR_EnableFieldWatch) && !node->getSymbolReference()->getSymbol()->isShadow()) 
+      {
+      TR::TreeEvaluator::rdWrtbarHelperForFieldWatch(node, cg, sideEffectRegister, valueReg);
+      }
+
    TR::Compilation * comp = cg->comp();
    TR_J9VMBase *fej9 = (TR_J9VMBase *) (comp->fe());
 
@@ -1051,7 +1529,16 @@ TR::Register *J9::Power::TreeEvaluator::awrtbarEvaluator(TR::Node *node, TR::Cod
    }
 
 TR::Register *J9::Power::TreeEvaluator::awrtbariEvaluator(TR::Node *node, TR::CodeGenerator *cg)
-   {
+   {   
+   if (cg->comp()->getOption(TR_EnableFieldWatch) && !node->getSymbolReference()->getSymbol()->isArrayShadowSymbol())
+      {
+      TR::Node *valueNode = NULL;
+      TR::TreeEvaluator::getIndirectWrtbarValueNode(cg, node, valueNode, false);
+      TR::Register *valueReg = cg->evaluate(valueNode);
+      TR::Register *sideEffectRegister = cg->evaluate(node->getThirdChild());
+      TR::TreeEvaluator::rdWrtbarHelperForFieldWatch(node, cg, sideEffectRegister, valueReg);
+      }
+
    TR::Compilation * comp = cg->comp();
    TR_J9VMBase *fej9 = (TR_J9VMBase *) (cg->fe());
 
@@ -1224,20 +1711,125 @@ TR::Register *J9::Power::TreeEvaluator::awrtbariEvaluator(TR::Node *node, TR::Co
    return NULL;
    }
 
+TR::Register *J9::Power::TreeEvaluator::fwrtbarEvaluator(TR::Node *node, TR::CodeGenerator *cg)
+   {
+   /* rdbar & wrtbar nodes contain the sideEffect Child Node. 
+      During Field Watch we evaluate the sideEffect and it's used within the process.
+      The evaluation of the remaining children, as well as the load/store operation occur within the respective evaluator. */
+   TR::Node *sideEffectNode = node->getSecondChild();
+   TR::Register *valueReg = cg->evaluate(node->getFirstChild());
+   TR::Register *sideEffectRegister = cg->evaluate(sideEffectNode);
+   if (cg->comp()->getOption(TR_EnableFieldWatch))
+      {
+      TR::TreeEvaluator::rdWrtbarHelperForFieldWatch(node, cg, sideEffectRegister, valueReg);
+      }
+   // The Value Node, or the second child is not decremented here. The store evaluator also uses it, and decrements it.
+   cg->decReferenceCount(sideEffectNode);
+   return TR::TreeEvaluator::fstoreEvaluator(node, cg);
+   }
+
+TR::Register *J9::Power::TreeEvaluator::fwrtbariEvaluator(TR::Node *node, TR::CodeGenerator *cg)
+   {
+   /* rdbar & wrtbar nodes contain the sideEffect Child Node. 
+      During Field Watch we evaluate the sideEffect and it's used within the process.
+      The evaluation of the remaining children, as well as the load/store operation occur within the respective evaluator. */
+   TR::Node *sideEffectNode = node->getThirdChild();
+   TR::Register *valueReg = cg->evaluate(node->getSecondChild());
+   TR::Register *sideEffectRegister = cg->evaluate(sideEffectNode);
+   if (cg->comp()->getOption(TR_EnableFieldWatch))
+      {
+      TR::TreeEvaluator::rdWrtbarHelperForFieldWatch(node, cg, sideEffectRegister, valueReg);
+      }
+   // The Value Node, or the second child is not decremented here. The store evaluator also uses it, and decrements it.
+   cg->decReferenceCount(sideEffectNode);
+   return TR::TreeEvaluator::fstoreEvaluator(node, cg);
+   }
+
+TR::Register *J9::Power::TreeEvaluator::dwrtbarEvaluator(TR::Node *node, TR::CodeGenerator *cg)
+   {
+   /* rdbar & wrtbar nodes contain the sideEffect Child Node. 
+      During Field Watch we evaluate the sideEffect and it's used within the process.
+      The evaluation of the remaining children, as well as the load/store operation occur within the respective evaluator. */
+   
+   TR::Node *sideEffectNode = node->getSecondChild();
+   TR::Register *valueReg = cg->evaluate(node->getFirstChild());
+   TR::Register *sideEffectRegister = cg->evaluate(node->getSecondChild());
+   if (cg->comp()->getOption(TR_EnableFieldWatch))
+      {
+      TR::TreeEvaluator::rdWrtbarHelperForFieldWatch(node, cg, sideEffectRegister, valueReg);
+      }
+   // The Value Node, or the second child is not decremented here. The store evaluator also uses it, and decrements it.
+   cg->decReferenceCount(sideEffectNode);
+   return TR::TreeEvaluator::dstoreEvaluator(node, cg);
+   }
+
+TR::Register *J9::Power::TreeEvaluator::dwrtbariEvaluator(TR::Node *node, TR::CodeGenerator *cg)
+   {
+   /* rdbar & wrtbar nodes contain the sideEffect Child Node. 
+      During Field Watch we evaluate the sideEffect and it's used within the process.
+      The evaluation of the remaining children, as well as the load/store operation occur within the respective evaluator. */
+   
+   TR::Node *sideEffectNode = node->getThirdChild();
+   TR::Register *valueReg = cg->evaluate(node->getSecondChild());
+   TR::Register *sideEffectRegister = cg->evaluate(node->getThirdChild());
+   if (cg->comp()->getOption(TR_EnableFieldWatch))
+      {
+      TR::TreeEvaluator::rdWrtbarHelperForFieldWatch(node, cg, sideEffectRegister, valueReg);
+      }
+   // The Value Node, or the second child is not decremented here. The store evaluator also uses it, and decrements it.
+   cg->decReferenceCount(sideEffectNode);
+   return TR::TreeEvaluator::dstoreEvaluator(node, cg);
+   }
+
 TR::Register *J9::Power::TreeEvaluator::irdbarEvaluator(TR::Node *node, TR::CodeGenerator *cg)
    {
-   return TR::TreeEvaluator::irdbariEvaluator(node, cg);
+   /* rdbar & wrtbar nodes contain the sideEffect Child Node. 
+      During Field Watch we evaluate the sideEffect and it's used within the process.
+      The evaluation of the remaining children, as well as the load/store operation occur within the respective evaluator. */
+
+   TR::Node *sideEffectNode = node->getFirstChild();
+   TR::Register * sideEffectRegister = cg->evaluate(sideEffectNode);
+   if (cg->comp()->getOption(TR_EnableFieldWatch))
+      {
+      TR::TreeEvaluator::rdWrtbarHelperForFieldWatch(node, cg, sideEffectRegister, NULL);
+      }
+   cg->decReferenceCount(sideEffectNode);
+   return TR::TreeEvaluator::iloadEvaluator(node, cg);
    }
 
 TR::Register *J9::Power::TreeEvaluator::irdbariEvaluator(TR::Node *node, TR::CodeGenerator *cg)
    {
-   TR_ASSERT(TR::Compiler->om.readBarrierType() != gc_modron_readbar_none, "iReadBarrierEvaluator");
-#ifdef OMR_GC_CONCURRENT_SCAVENGER
-   TR_ASSERT(cg->comp()->useCompressedPointers(), "irdbarEvaluator is expecting compressed references");
+   /* rdbar & wrtbar nodes contain the sideEffect Child Node. 
+      During Field Watch we evaluate the sideEffect and it's used within the process.
+      The evaluation of the remaining children, as well as the load/store operation occur within the respective evaluator. */   
+   TR::Node *sideEffectNode = node->getFirstChild();
+   TR::Register *sideEffectRegister = cg->evaluate(sideEffectNode);
+   if (cg->comp()->getOption(TR_EnableFieldWatch))
+      {
+      TR::TreeEvaluator::rdWrtbarHelperForFieldWatch(node, cg, sideEffectRegister, NULL);
+      }
+   
+   if (TR::Compiler->om.readBarrierType() == gc_modron_readbar_none)
+      return TR::TreeEvaluator::iloadEvaluator(node, cg);
+   else if (cg->comp()->useCompressedPointers() && 
+          (node->getOpCode().hasSymbolReference() &&
+           node->getSymbolReference()->getSymbol()->getDataType() == TR::Address))
+      {
+      return TR::TreeEvaluator::iConcurrentScavengeSequence(node, cg);
+      }
+   else
+      return NULL;
+   }
 
+TR::Register *J9::Power::TreeEvaluator::iConcurrentScavengeSequence(TR::Node *node, TR::CodeGenerator *cg)
+   {
+#ifndef OMR_GC_CONCURRENT_SCAVENGER
+   TR_ASSERT_FATAL(0, "Concurrent Scavenger not supported.");
+   return NULL;
+#else   
    TR::Compilation *comp = cg->comp();
    TR::MemoryReference *tempMR = NULL;
-
+   
    TR::Register *objReg = cg->allocateRegister();
    TR::Register *locationReg = cg->allocateRegister();
    TR::Register *evacuateReg = cg->allocateRegister();
@@ -1250,7 +1842,7 @@ TR::Register *J9::Power::TreeEvaluator::irdbariEvaluator(TR::Node *node, TR::Cod
    TR::LabelSymbol *endLabel = generateLabelSymbol(cg);
    startLabel->setStartInternalControlFlow();
    endLabel->setEndInternalControlFlow();
-
+   
    TR::RegisterDependencyConditions *deps = new (cg->trHeapMemory()) TR::RegisterDependencyConditions(0, 7, cg->trMemory());
    deps->addPostCondition(objReg, TR::RealRegister::NoReg);
    deps->addPostCondition(locationReg, TR::RealRegister::gr4); //TR_softwareReadBarrier helper needs this in gr4.
@@ -1259,13 +1851,13 @@ TR::Register *J9::Power::TreeEvaluator::irdbariEvaluator(TR::Node *node, TR::Cod
    deps->addPostCondition(r11Reg, TR::RealRegister::gr11);
    deps->addPostCondition(metaReg, TR::RealRegister::NoReg);
    deps->addPostCondition(condReg, TR::RealRegister::NoReg);
-
+   
    if (node->getSymbolReference()->getSymbol()->isInternalPointer())
       {
       objReg->setPinningArrayPointer(node->getSymbolReference()->getSymbol()->castToInternalPointerAutoSymbol()->getPinningArrayPointer());
       objReg->setContainsInternalPointer();
       }
-
+   
    node->setRegister(objReg);
    bool needSync = (node->getSymbolReference()->getSymbol()->isSyncVolatile() && TR::Compiler->target.isSMP());
 
@@ -1347,22 +1939,48 @@ TR::Register *J9::Power::TreeEvaluator::irdbariEvaluator(TR::Node *node, TR::Cod
    cg->stopUsingRegister(condReg);
 
    cg->machine()->setLinkRegisterKilled(true);
-
-   return objReg;
-#else
-   return NULL;
+   return objReg;   
 #endif
    }
 
 TR::Register *J9::Power::TreeEvaluator::ardbarEvaluator(TR::Node *node, TR::CodeGenerator *cg)
    {
-   return TR::TreeEvaluator::ardbariEvaluator(node, cg);
+   /* rdbar & wrtbar nodes contain the sideEffect Child Node. 
+      During Field Watch we evaluate the sideEffect and it's used within the process.
+      The evaluation of the remaining children, as well as the load/store operation occur within the respective evaluator. */
+   TR::Node *sideEffectNode = node->getFirstChild();
+   TR::Register *sideEffectRegister = cg->evaluate(sideEffectNode);
+   if (cg->comp()->getOption(TR_EnableFieldWatch))
+      {
+      TR::TreeEvaluator::rdWrtbarHelperForFieldWatch(node, cg, sideEffectRegister, NULL);
+      }
+   cg->decReferenceCount(sideEffectNode);
+   return TR::TreeEvaluator::aloadEvaluator(node, cg);
    }
 
 TR::Register *J9::Power::TreeEvaluator::ardbariEvaluator(TR::Node *node, TR::CodeGenerator *cg)
    {
-   TR_ASSERT(TR::Compiler->om.readBarrierType() != gc_modron_readbar_none, "aReadBarrierEvaluator");
-#ifdef OMR_GC_CONCURRENT_SCAVENGER
+   /* rdbar & wrtbar nodes contain the sideEffect Child Node. 
+      During Field Watch we evaluate the sideEffect and it's used within the process.
+      The evaluation of the remaining children, as well as the load/store operation occur within the respective evaluator. */
+   TR::Register *sideEffectRegister = cg->evaluate(node->getFirstChild());
+   if (cg->comp()->getOption(TR_EnableFieldWatch))
+      {
+      TR::TreeEvaluator::rdWrtbarHelperForFieldWatch(node, cg, sideEffectRegister, NULL);
+      }
+   
+   if (TR::Compiler->om.readBarrierType() == gc_modron_readbar_none)
+      return TR::TreeEvaluator::aloadEvaluator(node, cg);
+   else
+      return TR::TreeEvaluator::aConcurrentScavengeSequence(node, cg);
+   }
+
+TR::Register *J9::Power::TreeEvaluator::aConcurrentScavengeSequence(TR::Node *node, TR::CodeGenerator *cg)
+   {
+#ifndef OMR_GC_CONCURRENT_SCAVENGER
+   TR_ASSERT_FATAL(0, "Concurrent Scavenger not supported.");
+   return NULL;
+#else
    TR::Compilation *comp = cg->comp();
    TR::MemoryReference *tempMR = NULL;
 
@@ -1493,8 +2111,6 @@ TR::Register *J9::Power::TreeEvaluator::ardbariEvaluator(TR::Node *node, TR::Cod
    cg->machine()->setLinkRegisterKilled(true);
 
    return tempReg;
-#else
-   return NULL;
 #endif
    }
 

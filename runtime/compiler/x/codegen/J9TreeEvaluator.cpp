@@ -12434,6 +12434,9 @@ J9::X86::TreeEvaluator::andORStringEvaluator(TR::Node *node, TR::CodeGenerator *
    }
 
 /*
+ *
+ * Generates instructions to fill in the J9JITWatchedStaticFieldData.fieldAddress, J9JITWatchedStaticFieldData.fieldClass for static fields,
+ * and J9JITWatchedInstanceFieldData.offset for instance fields at runtime. Used for fieldwatch support.
  * Fill in the J9JITWatchedStaticFieldData.fieldAddress, J9JITWatchedStaticFieldData.fieldClass for static field
  * and J9JITWatchedInstanceFieldData.offset for instance field
  *
@@ -12449,11 +12452,12 @@ J9::X86::TreeEvaluator::andORStringEvaluator(TR::Node *node, TR::CodeGenerator *
  * jmp restartLabel
  */
 void
-J9::X86::TreeEvaluator::generateFillInDataBlockSequenceForUnresolvedField (TR::CodeGenerator *cg, TR::Node *node, TR::Snippet *dataSnippet, bool isWrite, TR::Register *sideEffectRegister)
+J9::X86::TreeEvaluator::generateFillInDataBlockSequenceForUnresolvedField (TR::CodeGenerator *cg, TR::Node *node, TR::Snippet *dataSnippet, bool isWrite, TR::Register *sideEffectRegister, TR::Register *dataSnippetRegister)
    {
    TR::SymbolReference *symRef = node->getSymbolReference();
    bool is64Bit = TR::Compiler->target.is64Bit();
    bool isStatic = symRef->getSymbol()->getKind() == TR::Symbol::IsStatic;
+   
    TR_RuntimeHelper helperIndex = isWrite? (isStatic ?  TR_jitResolveStaticFieldSetterDirect: TR_jitResolveFieldSetterDirect):
                                            (isStatic ?  TR_jitResolveStaticFieldDirect: TR_jitResolveFieldDirect);
    TR::Linkage *linkage = cg->getLinkage(runtimeHelperLinkage(helperIndex));
@@ -12714,9 +12718,11 @@ static uint8_t getNumOfConditionsForReportFieldAccess(TR::Node *node, bool isRes
    }
 
 void
-J9::X86::TreeEvaluator::generateTestAndReportFieldWatchInstructions(TR::CodeGenerator *cg, TR::Node *node, TR::Snippet *dataSnippet, bool isWrite, TR::Register *sideEffectRegister, TR::Register *valueReg)
+J9::X86::TreeEvaluator::generateTestAndReportFieldWatchInstructions(TR::CodeGenerator *cg, TR::Node *node, TR::Snippet *dataSnippet, bool isWrite, TR::Register *sideEffectRegister, TR::Register *valueReg, TR::Register *dataSnippetRegister)
    {
    bool isResolved = !node->getSymbolReference()->isUnresolved();
+   bool isAOTCompile = cg->comp()->compileRelocatableCode();
+
    TR::LabelSymbol* startLabel = generateLabelSymbol(cg);
    TR::LabelSymbol* endLabel = generateLabelSymbol(cg);
    TR::LabelSymbol* fieldReportLabel = generateLabelSymbol(cg);
@@ -12729,7 +12735,6 @@ J9::X86::TreeEvaluator::generateTestAndReportFieldWatchInstructions(TR::CodeGene
    TR::MemoryReference *classFlagsMemRef = NULL;
    TR_J9VMBase *fej9 = (TR_J9VMBase *)(cg->fe());
    bool isInstanceField = node->getOpCode().isIndirect();
-   bool isAOTCompile = cg->comp()->compileRelocatableCode();
 
    if (isInstanceField)
       {
@@ -12763,7 +12768,7 @@ J9::X86::TreeEvaluator::generateTestAndReportFieldWatchInstructions(TR::CodeGene
          fieldClassReg = cg->allocateRegister();
          if (isWrite)
             {
-            generateRegMemInstruction(LRegMem(), node, fieldClassReg, generateX86MemoryReference(sideEffectRegister, fej9->getOffsetOfClassFromJavaLangClassField(), cg), cg);
+            generateRegMemInstruction(LRegMem(), node, fieldClassReg, generateX86MemoryReference(sideEffectRegister,fej9->getOffsetOfClassFromJavaLangClassField(), cg), cg);
             }
          classFlagsMemRef = generateX86MemoryReference(fieldClassReg, fej9->getOffsetOfClassFlags(), cg);
          }
@@ -12821,11 +12826,11 @@ J9::X86::TreeEvaluator::irdbariEvaluator(TR::Node *node, TR::CodeGenerator *cg)
    // For rdbar and wrtbar nodes we first evaluate the children we need to
    // handle the side effects. Then we delegate the evaluation of the remaining
    // children and the load/store operation to the appropriate load/store evaluator.
-   TR::Node *sideEffectNode = node->getFirstChild();
-   TR::Register *sideEffectRegister = cg->evaluate(sideEffectNode);
 
    if (cg->comp()->getOption(TR_EnableFieldWatch))
       {
+      TR::Node *sideEffectNode = node->getFirstChild();
+      TR::Register *sideEffectRegister = cg->evaluate(sideEffectNode);
       TR::TreeEvaluator::rdWrtbarHelperForFieldWatch(node, cg, sideEffectRegister, NULL);
       }
 
@@ -12860,7 +12865,6 @@ J9::X86::TreeEvaluator::irdbarEvaluator(TR::Node *node, TR::CodeGenerator *cg)
    // children and the load/store operation to the appropriate load/store evaluator.
    TR::Node *sideEffectNode = node->getFirstChild();
    TR::Register * sideEffectRegister = cg->evaluate(sideEffectNode);
-
    if (cg->comp()->getOption(TR_EnableFieldWatch))
       {
       TR::TreeEvaluator::rdWrtbarHelperForFieldWatch(node, cg, sideEffectRegister, NULL);
@@ -12878,7 +12882,6 @@ J9::X86::TreeEvaluator::ardbarEvaluator(TR::Node *node, TR::CodeGenerator *cg)
    // children and the load/store operation to the appropriate load/store evaluator.
    TR::Node *sideEffectNode = node->getFirstChild();
    TR::Register *sideEffectRegister = cg->evaluate(sideEffectNode);
-
    if (cg->comp()->getOption(TR_EnableFieldWatch))
       {
       TR::TreeEvaluator::rdWrtbarHelperForFieldWatch(node, cg, sideEffectRegister, NULL);
@@ -12895,7 +12898,6 @@ J9::X86::TreeEvaluator::ardbariEvaluator(TR::Node *node, TR::CodeGenerator *cg)
    // handle the side effects. Then we delegate the evaluation of the remaining
    // children and the load/store operation to the appropriate load/store evaluator.
    TR::Register *sideEffectRegister = cg->evaluate(node->getFirstChild());
-
    if (cg->comp()->getOption(TR_EnableFieldWatch))
       {
       TR::TreeEvaluator::rdWrtbarHelperForFieldWatch(node, cg, sideEffectRegister, NULL);
@@ -12925,10 +12927,9 @@ TR::Register *J9::X86::TreeEvaluator::fwrtbarEvaluator(TR::Node *node, TR::CodeG
    // For rdbar and wrtbar nodes we first evaluate the children we need to
    // handle the side effects. Then we delegate the evaluation of the remaining
    // children and the load/store operation to the appropriate load/store evaluator.
-   TR::Register *valueReg = cg->evaluate(node->getFirstChild());
    TR::Node *sideEffectNode = node->getSecondChild();
+   TR::Register *valueReg = cg->evaluate(node->getFirstChild());
    TR::Register *sideEffectRegister = cg->evaluate(sideEffectNode);
-
    if (cg->comp()->getOption(TR_EnableFieldWatch))
       {
       TR::TreeEvaluator::rdWrtbarHelperForFieldWatch(node, cg, sideEffectRegister, valueReg);
@@ -12946,10 +12947,9 @@ TR::Register *J9::X86::TreeEvaluator::fwrtbariEvaluator(TR::Node *node, TR::Code
    // For rdbar and wrtbar nodes we first evaluate the children we need to
    // handle the side effects. Then we delegate the evaluation of the remaining
    // children and the load/store operation to the appropriate load/store evaluator.
-   TR::Register *valueReg = cg->evaluate(node->getSecondChild());
    TR::Node *sideEffectNode = node->getThirdChild();
+   TR::Register *valueReg = cg->evaluate(node->getSecondChild());
    TR::Register *sideEffectRegister = cg->evaluate(sideEffectNode);
-
    if (cg->comp()->getOption(TR_EnableFieldWatch))
       {
       TR::TreeEvaluator::rdWrtbarHelperForFieldWatch(node, cg, sideEffectRegister, valueReg);
@@ -12968,10 +12968,9 @@ TR::Register *J9::X86::i386::TreeEvaluator::dwrtbarEvaluator(TR::Node *node, TR:
    // For rdbar and wrtbar nodes we first evaluate the children we need to
    // handle the side effects. Then we delegate the evaluation of the remaining
    // children and the load/store operation to the appropriate load/store evaluator.
-   TR::Register *valueReg = cg->evaluate(node->getFirstChild());
    TR::Node *sideEffectNode = node->getSecondChild();
+   TR::Register *valueReg = cg->evaluate(node->getFirstChild());
    TR::Register *sideEffectRegister = cg->evaluate(sideEffectNode);
-
    if (cg->comp()->getOption(TR_EnableFieldWatch))
       {
       TR::TreeEvaluator::rdWrtbarHelperForFieldWatch(node, cg, sideEffectRegister, valueReg);
@@ -12989,10 +12988,9 @@ TR::Register *J9::X86::i386::TreeEvaluator::dwrtbariEvaluator(TR::Node *node, TR
    // For rdbar and wrtbar nodes we first evaluate the children we need to
    // handle the side effects. Then we delegate the evaluation of the remaining
    // children and the load/store operation to the appropriate load/store evaluator.
-   TR::Register *valueReg = cg->evaluate(node->getSecondChild());
    TR::Node *sideEffectNode = node->getThirdChild();
+   TR::Register *valueReg = cg->evaluate(node->getSecondChild());
    TR::Register *sideEffectRegister = cg->evaluate(sideEffectNode);
-
    if (cg->comp()->getOption(TR_EnableFieldWatch))
       {
       TR::TreeEvaluator::rdWrtbarHelperForFieldWatch(node, cg, sideEffectRegister, valueReg);
@@ -13012,10 +13010,9 @@ TR::Register *J9::X86::AMD64::TreeEvaluator::dwrtbarEvaluator(TR::Node *node, TR
    // For rdbar and wrtbar nodes we first evaluate the children we need to
    // handle the side effects. Then we delegate the evaluation of the remaining
    // children and the load/store operation to the appropriate load/store evaluator.
-   TR::Register *valueReg = cg->evaluate(node->getFirstChild());
    TR::Node *sideEffectNode = node->getSecondChild();
+   TR::Register *valueReg = cg->evaluate(node->getFirstChild());
    TR::Register *sideEffectRegister = cg->evaluate(sideEffectNode);
-
    if (cg->comp()->getOption(TR_EnableFieldWatch))
       {
       TR::TreeEvaluator::rdWrtbarHelperForFieldWatch(node, cg, sideEffectRegister, valueReg);
@@ -13033,10 +13030,9 @@ TR::Register *J9::X86::AMD64::TreeEvaluator::dwrtbariEvaluator(TR::Node *node, T
    // For rdbar and wrtbar nodes we first evaluate the children we need to
    // handle the side effects. Then we delegate the evaluation of the remaining
    // children and the load/store operation to the appropriate load/store evaluator.
-   TR::Register *valueReg = cg->evaluate(node->getSecondChild());
    TR::Node *sideEffectNode = node->getThirdChild();
+   TR::Register *valueReg = cg->evaluate(node->getSecondChild());
    TR::Register *sideEffectRegister = cg->evaluate(sideEffectNode);
-
    if (cg->comp()->getOption(TR_EnableFieldWatch))
       {
       TR::TreeEvaluator::rdWrtbarHelperForFieldWatch(node, cg, sideEffectRegister, valueReg);

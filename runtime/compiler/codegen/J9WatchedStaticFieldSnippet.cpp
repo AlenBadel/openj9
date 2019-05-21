@@ -104,6 +104,7 @@ uint8_t *TR::J9WatchedStaticFieldSnippet::emitSnippetBody()
    cursor += sizeof(J9JITWatchedStaticFieldData);
 
    return cursor;
+   
    }
 
 void TR::J9WatchedStaticFieldSnippet::print(TR::FILE *pOutFile, TR_Debug *debug)
