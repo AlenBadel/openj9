@@ -1063,7 +1063,7 @@ TR_RelocationRecordConstantPool::applyRelocation(TR_RelocationRuntime *reloRunti
 
    uintptrj_t oldValue =  (uintptrj_t) reloTarget->loadAddress(reloLocation);
    uintptrj_t newCP = computeNewConstantPool(reloRuntime, reloTarget, oldValue);
-   reloTarget->storeAddress((uint8_t *)newCP, reloLocation);
+   reloTarget->storeAddressSequence((uint8_t *)newCP, reloLocation, reloFlags(reloTarget));
 
    return 0;
    }

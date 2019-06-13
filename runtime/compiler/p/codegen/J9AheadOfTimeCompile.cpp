@@ -365,6 +365,19 @@ uint8_t *J9::Power::AheadOfTimeCompile::initializeAOTRelocationHeader(TR::Iterat
             }
          }
          break;
+      case TR_ConstantPool:
+         {
+         TR_RelocationRecordInformation *recordInfo = (TR_RelocationRecordInformation*) relocation->getTargetAddress();
+         uint8_t flags = (uint8_t) recordInfo->data3;
+         TR_ASSERT((flags & RELOCATION_CROSS_PLATFORM_FLAGS_MASK) == 0,  "reloFlags bits overlap cross-platform flags bits\n");
+         *flagsCursor |= (flags & RELOCATION_RELOC_FLAGS_MASK);
+
+         *(uintptrj_t *)cursor = (uintptrj_t)recordInfo->data2; // inlined site index
+         cursor += SIZEPOINTER;
+         *(uintptrj_t *)cursor = (uintptrj_t)recordInfo->data1; // constantPool
+         cursor += SIZEPOINTER;
+         break;
+         }
       case TR_ConstantPoolOrderedPair:
          {
          TR_RelocationRecordInformation *recordInfo = (TR_RelocationRecordInformation*) relocation->getTargetAddress();
