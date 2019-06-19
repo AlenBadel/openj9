@@ -175,10 +175,12 @@ uint8_t *J9::Power::UnresolvedDataSnippet::emitSnippetBody()
    cursor += 4;
 
    *(intptrj_t *)cursor = (intptrj_t)getDataSymbolReference()->getOwningMethod(comp)->constantPool();
-   cg()->addExternalRelocation(new (cg()->trHeapMemory()) TR::ExternalRelocation(cursor,*(uint8_t **)cursor,
-                                                                          getNode() ? (uint8_t *)getNode()->getInlinedSiteIndex() : (uint8_t *)-1,
-                                                                          TR_ConstantPool,
-                                                                          cg()),
+
+   TR_RelocationRecordInformation *recordInfo = (TR_RelocationRecordInformation *)cg()->comp()->trMemory()->allocateMemory(sizeof(TR_RelocationRecordInformation), heapAlloc);
+   recordInfo->data1 = (uintptr_t)(*cursor);
+   recordInfo->data2 = (uintptr_t)(getNode() ? (uint8_t *)getNode()->getInlinedSiteIndex() : (uint8_t *)-1);
+   recordInfo->data3 = (uintptr_t)(0);
+   cg()->addExternalRelocation(new (cg()->trHeapMemory()) TR::ExternalRelocation(cursor, (uint8_t *)recordInfo, TR_ConstantPool, cg()),
                           __FILE__,
                           __LINE__,
                           getNode());
@@ -193,8 +195,11 @@ uint8_t *J9::Power::UnresolvedDataSnippet::emitSnippetBody()
       *(int32_t *)cursor = getMemoryReference()->getOffset(*(comp)); // offset
       if (getDataSymbol()->isConstObjectRef() || getDataSymbol()->isConstantDynamic())
          {
-         cg()->addProjectSpecializedRelocation(cursor, *(uint8_t **)(cursor-4),
-               getNode() ? (uint8_t *)getNode()->getInlinedSiteIndex() : (uint8_t *)-1, TR_ConstantPool,
+         TR_RelocationRecordInformation *recordInfo2 = (TR_RelocationRecordInformation *)cg()->comp()->trMemory()->allocateMemory(sizeof(TR_RelocationRecordInformation), heapAlloc);
+         recordInfo2->data1 = (uintptr_t)(*(cursor-4));
+         recordInfo2->data2 = (uintptr_t)(getNode() ? (uint8_t *)getNode()->getInlinedSiteIndex() : (uint8_t *)-1);
+         recordInfo2->data3 = (uintptr_t)(0);
+         cg()->addProjectSpecializedRelocation(cursor, recordInfo2, TR_ConstantPool,
                                 __FILE__,
                                 __LINE__,
                                 getNode());
