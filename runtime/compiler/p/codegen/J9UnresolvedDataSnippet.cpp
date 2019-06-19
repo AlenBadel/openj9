@@ -199,7 +199,7 @@ uint8_t *J9::Power::UnresolvedDataSnippet::emitSnippetBody()
          recordInfo2->data1 = (uintptr_t)(*(cursor-4));
          recordInfo2->data2 = (uintptr_t)(getNode() ? getNode()->getInlinedSiteIndex() : -1);
          recordInfo2->data3 = (uintptr_t)(0);
-         cg()->addProjectSpecializedRelocation(cursor, (uint8_t *)recordInfo2, TR_ConstantPool,
+         cg()->addProjectSpecializedRelocation(cursor, (uint8_t *)recordInfo2, NULL, TR_ConstantPool,
                                 __FILE__,
                                 __LINE__,
                                 getNode());
