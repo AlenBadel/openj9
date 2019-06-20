@@ -177,7 +177,7 @@ uint8_t *J9::Power::UnresolvedDataSnippet::emitSnippetBody()
    *(intptrj_t *)cursor = (intptrj_t)getDataSymbolReference()->getOwningMethod(comp)->constantPool();
 
    TR_RelocationRecordInformation *recordInfo = (TR_RelocationRecordInformation *)cg()->comp()->trMemory()->allocateMemory(sizeof(TR_RelocationRecordInformation), heapAlloc);
-   recordInfo->data1 = (uintptr_t)(*cursor);
+   recordInfo->data1 = (uintptr_t)(*(uint8_t **)cursor);
    recordInfo->data2 = (uintptr_t)(getNode() ? getNode()->getInlinedSiteIndex() : -1);
    recordInfo->data3 = (uintptr_t)(fixedSequence7);
    cg()->addExternalRelocation(new (cg()->trHeapMemory()) TR::ExternalRelocation(cursor, (uint8_t *)recordInfo, TR_ConstantPool, cg()),
@@ -196,7 +196,7 @@ uint8_t *J9::Power::UnresolvedDataSnippet::emitSnippetBody()
       if (getDataSymbol()->isConstObjectRef() || getDataSymbol()->isConstantDynamic())
          {
          TR_RelocationRecordInformation *recordInfo2 = (TR_RelocationRecordInformation *)cg()->comp()->trMemory()->allocateMemory(sizeof(TR_RelocationRecordInformation), heapAlloc);
-         recordInfo2->data1 = (uintptr_t)(*(cursor-4));
+         recordInfo2->data1 = (uintptr_t)(*(uint8_t **)(cursor-4));
          recordInfo2->data2 = (uintptr_t)(getNode() ? getNode()->getInlinedSiteIndex() : -1);
          recordInfo2->data3 = (uintptr_t)(fixedSequence7);
          cg()->addProjectSpecializedRelocation(cursor, (uint8_t *)recordInfo2, NULL, TR_ConstantPool,
