@@ -120,7 +120,7 @@ uint8_t* TR::J9PPCWatchedStaticFieldSnippet::emitSnippetBody()
             int32_t *patchAddr = (int32_t *)getLowerInstruction()->getBinaryEncoding();
             intptrj_t addrValue = (intptrj_t)cursor;
 
-            if(TR::Compiler->target.is64Bit())
+            if (TR::Compiler->target.is64Bit())
                 {
                 *patchAddr |= LO_VALUE(addrValue) & 0x0000ffff;
                 addrValue = cg()->hiValue(addrValue);
@@ -130,9 +130,11 @@ uint8_t* TR::J9PPCWatchedStaticFieldSnippet::emitSnippetBody()
                 }
             else
                 {
+		printf("Patching 32Bit addrValue:%p patchAddr:%p \n", addrValue, patchAddr);
                 // 32 Bit only handles nibbles. TOC is not enabled . 
                 *(patchAddr) |= cg()->hiValue(addrValue) & 0x0000ffff;
                 *(patchAddr-2) |= LO_VALUE(addrValue) & 0x0000ffff;
+                printf("Addr:%p Second:%p \n", *(patchAddr), *(patchAddr-2));
                 }
             }
         
