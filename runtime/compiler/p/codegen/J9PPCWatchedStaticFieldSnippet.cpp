@@ -42,6 +42,7 @@ uint8_t* TR::J9PPCWatchedStaticFieldSnippet::emitSnippetBody()
    if (TR::Compiler->target.is64Bit() && getTOCOffset() != PTOC_FULL_INDEX)
       {
       TR_PPCTableOfConstants::setTOCSlot(getTOCOffset(), reinterpret_cast<uintptrj_t>(snippetLocation));
+      printf("64Bit TOC offset:%d Snippet Location:%p \n", getTOCOffset(), snippetLocation);
       }
    else if (getLowerInstruction() != NULL)
       {

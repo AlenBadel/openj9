@@ -1094,12 +1094,12 @@ void generateReportFieldAccessOutlinedInstructions(TR::Node *node, TR::LabelSymb
    TR_RuntimeHelper helperIndex = isWrite ? (isInstanceField ? TR_jitReportInstanceFieldWrite: TR_jitReportStaticFieldWrite):
                                             (isInstanceField ? TR_jitReportInstanceFieldRead: TR_jitReportStaticFieldRead);
 
-   TR::Linkage *linkage = cg->getLinkage(runtimeHelperLinkage(helperIndex));
-   auto linkageProperties = linkage->getProperties();
+   //TR::Linkage *linkage = cg->getLinkage(runtimeHelperLinkage(helperIndex));
+   //auto linkageProperties = linkage->getProperties();
    TR::Register *valueReferenceReg = NULL;
 
    // First argument is always the data block.
-   uint8_t numOfConditions = 1;
+   uint8_t numOfConditions = 2;
    // Instance field report needs the base object
    if (isInstanceField)
       numOfConditions++;
@@ -1113,7 +1113,8 @@ void generateReportFieldAccessOutlinedInstructions(TR::Node *node, TR::LabelSymb
       numOfConditions++; 
 
    TR::RegisterDependencyConditions  *deps =  new (cg->trHeapMemory())TR::RegisterDependencyConditions(numOfConditions, numOfConditions, cg->trMemory());
-
+   TR::Register *gr2Reg = cg->allocateRegister();
+   TR::addDependency(deps, gr2Reg, TR::RealRegister::gr2, TR_GPR, cg); 
    /*
     * For reporting field write, reference to the valueNode is needed so we need to store
     * the value on to a stack location first and pass the stack location address as an arguement
@@ -1169,11 +1170,12 @@ void generateReportFieldAccessOutlinedInstructions(TR::Node *node, TR::LabelSymb
       deps->addPreCondition(valueReferenceReg, TR::RealRegister::gr5);
       deps->addPostCondition(valueReferenceReg, TR::RealRegister::gr5);
       }
-
+   
+   //generateInstruction(cg, TR::InstOpCode::bad, node); // DEBUG
    // Generate branch instruction to jump into helper
    TR::SymbolReference *helperSym = cg->comp()->getSymRefTab()->findOrCreateRuntimeHelper(helperIndex, false, false, false);
-   TR::Instruction *call = generateDepImmSymInstruction(cg, TR::InstOpCode::bl, node, reinterpret_cast<uintptrj_t>(helperSym->getMethodAddress()), deps, helperSym);
-   call->PPCNeedsGCMap(linkageProperties.getPreservedRegisterMapForGC());
+   TR::Instruction *call = generateDepImmSymInstruction(cg, TR::InstOpCode::bl, node, (uintptrj_t)helperSym->getMethodAddress(), deps, helperSym);
+   //call->PPCNeedsGCMap(linkageProperties.getPreservedRegisterMapForGC());
 
    generateLabelInstruction(cg, TR::InstOpCode::b, node, endLabel);
 
@@ -1276,6 +1278,18 @@ J9::Power::TreeEvaluator::generateTestAndReportFieldWatchInstructions(TR::CodeGe
    startLabel->setStartInternalControlFlow();
    endLabel->setEndInternalControlFlow();
 
+      if(0)
+      {
+      printf("Printing Snippet Contents \
+              Method: %p \n \
+              BcInfo: %p \n \
+              FieldAddress: %p \n \
+              FieldClass: %p \n", static_cast<TR::J9PPCWatchedStaticFieldSnippet *>(dataSnippet)->getMethod(),
+                                  static_cast<TR::J9PPCWatchedStaticFieldSnippet *>(dataSnippet)->getLocation(),
+                                  static_cast<TR::J9PPCWatchedStaticFieldSnippet *>(dataSnippet)->getFieldAddress(),
+                                  static_cast<TR::J9PPCWatchedStaticFieldSnippet *>(dataSnippet)->getFieldClass());
+    }
+
    generateLabelInstruction(cg, TR::InstOpCode::label, node, startLabel);
 
    TR_PPCOutOfLineCodeSection *generateReportOOL = new (cg->trHeapMemory()) TR_PPCOutOfLineCodeSection(fieldReportLabel, endLabel, cg);
@@ -1303,9 +1317,13 @@ J9::Power::TreeEvaluator::generateTestAndReportFieldWatchInstructions(TR::CodeGe
          }
       else
          {
-         fieldClassReg = cg->allocateRegister();
          J9Class * fieldClass = static_cast<TR::J9PPCWatchedStaticFieldSnippet *>(dataSnippet)->getFieldClass();
-         loadAddressConstant(cg, node, reinterpret_cast<uintptrj_t>(fieldClass), fieldClassReg);
+         loadAddressConstant(cg, node, (uintptrj_t)fieldClass, fieldClassReg);
+	 //printf("Size of Ref Addr:%d\n", TR::Compiler->om.sizeofReferenceAddress());
+	 //printf("fieldClass Address JIT:%p\n", fieldClass);
+	 //printf("Offset of class Flags JIT: %d\n", fej9->getOffsetOfClassFlags());
+	 //printf("Address of class Flags JIT:%p\n", &(fieldClass->classFlags));
+	 //printf("Address of class flags As Compared JIT:%p\n", (fieldClass + fej9->getOffsetOfClassFlags())); 
          }
       }
    else
@@ -1324,10 +1342,13 @@ J9::Power::TreeEvaluator::generateTestAndReportFieldWatchInstructions(TR::CodeGe
          }
       } 
 
-   TR::MemoryReference *classFlagsMemRef = new (cg->trHeapMemory()) TR::MemoryReference(fieldClassReg, static_cast<uintptrj_t>(fej9->getOffsetOfClassFlags()),TR::Compiler->om.sizeofReferenceAddress(), cg);
-   
+   TR::MemoryReference *classFlagsMemRef = new (cg->trHeapMemory()) TR::MemoryReference(fieldClassReg, (uintptrj_t)fej9->getOffsetOfClassFlags(), 4, cg);
+   printf("sizeOfRReferenceAddress:%d\n", TR::Compiler->om.sizeofReferenceAddress());
+  
    TR::Register *cndReg = cg->allocateRegister(TR_CCR);
-   generateTrg1MemInstruction(cg,TR::InstOpCode::Op_load, node, scratchReg, classFlagsMemRef);
+   //generateTrg1MemInstruction(cg, TR::InstOpCode::addi2, node, scratchReg, classFlagsMemRef);
+   generateTrg1MemInstruction(cg,TR::InstOpCode::lwz, node, scratchReg, classFlagsMemRef);
+   //generateInstruction(cg, TR::InstOpCode::bad, node);
    generateTrg1Src1ImmInstruction(cg, TR::InstOpCode::andi_r, node, scratchReg, scratchReg, cndReg, J9ClassHasWatchedFields);
    generateConditionalBranchInstruction(cg, TR::InstOpCode::bne, node, fieldReportLabel, cndReg);
 
