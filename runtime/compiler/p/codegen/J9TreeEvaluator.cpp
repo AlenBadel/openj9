@@ -1323,10 +1323,10 @@ J9::Power::TreeEvaluator::generateTestAndReportFieldWatchInstructions(TR::CodeGe
          }
       } 
 
-   TR::MemoryReference *classFlagsMemRef = new (cg->trHeapMemory()) TR::MemoryReference(fieldClassReg, static_cast<uintptrj_t>(fej9->getOffsetOfClassFlags()),TR::Compiler->om.sizeofReferenceAddress(), cg);
+   TR::MemoryReference *classFlagsMemRef = new (cg->trHeapMemory()) TR::MemoryReference(fieldClassReg, static_cast<uintptrj_t>(fej9->getOffsetOfClassFlags()), 4, cg);
    
    TR::Register *cndReg = cg->allocateRegister(TR_CCR);
-   generateTrg1MemInstruction(cg,TR::InstOpCode::Op_load, node, scratchReg, classFlagsMemRef);
+   generateTrg1MemInstruction(cg,TR::InstOpCode::lwz, node, scratchReg, classFlagsMemRef);
    generateTrg1Src1ImmInstruction(cg, TR::InstOpCode::andi_r, node, scratchReg, scratchReg, cndReg, J9ClassHasWatchedFields);
    generateConditionalBranchInstruction(cg, TR::InstOpCode::bne, node, fieldReportLabel, cndReg);
 
