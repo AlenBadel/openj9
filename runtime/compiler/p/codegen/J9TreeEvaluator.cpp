@@ -1303,7 +1303,6 @@ J9::Power::TreeEvaluator::generateTestAndReportFieldWatchInstructions(TR::CodeGe
          }
       else
          {
-         fieldClassReg = cg->allocateRegister();
          J9Class * fieldClass = static_cast<TR::J9PPCWatchedStaticFieldSnippet *>(dataSnippet)->getFieldClass();
          loadAddressConstant(cg, node, reinterpret_cast<uintptrj_t>(fieldClass), fieldClassReg);
          }
