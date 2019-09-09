@@ -459,6 +459,10 @@ enum INIT_STAGE {
 #define VMOPT_XXDEEP_SCAN "-XX:+GCDeepStructurePriorityScan"
 #define VMOPT_XXNODEEP_SCAN "-XX:-GCDeepStructurePriorityScan"
 
+#define VMOPT_XLP "-Xlp"
+#define VMOPT_XCONCURRENTBACKGROUND = "-Xconcurrentbackground"
+#define VMOPT_XGCTHREADS = "-XgcThreads"
+
 #define MAPOPT_AGENTLIB_JDWP_EQUALS "-agentlib:jdwp="
 
 #define MAPOPT_XCOMP "-Xcomp"
@@ -498,6 +502,11 @@ enum INIT_STAGE {
 #define MAPOPT_XXMAXHEAPSIZE_EQUALS "-XX:MaxHeapSize="
 #define MAPOPT_XXINITIALHEAPSIZE_EQUALS "-XX:InitialHeapSize="
 #define MAPOPT_XXONOUTOFMEMORYERROR_EQUALS "-XX:OnOutOfMemoryError="
+#define MAPOPT_XXUSELARGEPAGES "-XX:+UseLargePages"
+#define MAPOPT_XXLARGEPAGESIZEINBYTES_EQUALS "-XX:LargePageSizeInBytes="
+#define MAPOPT_XXPARALLELCMSTHREADS_EQUALS "-XX:ParallelCMSThreads="
+#define MAPOPT_XXCONCGCTHREADS_EQUALS "-XX:ConcGCThreads="
+#define MAPOPT_XXPARALLELGCTHREADS_EQUALS "-XX:ParallelGCThreads="
 
 #define VMOPT_XXACTIVEPROCESSORCOUNT_EQUALS "-XX:ActiveProcessorCount="
 

@@ -4092,6 +4092,26 @@ registerVMCmdLineMappings(J9JavaVM* vm)
 	if (registerCmdLineMapping(vm, MAPOPT_XXONOUTOFMEMORYERROR_EQUALS, VMOPT_XDUMP_TOOL_OUTOFMEMORYERROR_EXEC_EQUALS, EXACT_MAP_WITH_OPTIONS) == RC_FAILED) {
 		return RC_FAILED;
 	}
+	/* Map -XX:+UseLargePages  to -Xlp */
+	if (registerCmdLineMapping(vm, MAPOPT_XXUSELARGEPAGES, VMOPT_XLP, EXACT_MAP_NO_OPTIONS) == RC_FAILED) {
+		return RC_FAILED;
+	}
+	/* Map -XX:LargePageSizeInBytes= to -XlpN */
+	if (registerCmdLineMapping(vm, MAPOPT_XXLARGEPAGESIZEINBYTES_EQUALS, VMOPT_XLP, EXACT_MAP_WITH_OPTIONS) == RC_FAILED) {
+		return RC_FAILED;
+	}
+	/* Map -XX:ParallelCMSThreads= to -XconcurrentbackgroundN */
+	if (registerCmdLineMapping(vm, MAPOPT_XXPARALLELCMSTHREADS_EQUALS, VMOPT_XCONCURRENTBACKGROUND, EXACT_MAP_WITH_OPTIONS) == RC_FAILED) {
+		return RC_FAILED;
+	}
+	/* Map -XX:ConcGCThreads= to -XconcurrentbackgroundN */
+	if (registerCmdLineMapping(vm, MAPOPT_XXCONCGCTHREADS_EQUALS, VMOPT_XCONCURRENTBACKGROUND, EXACT_MAP_WITH_OPTIONS) == RC_FAILED) {
+		return RC_FAILED;
+	}
+	/* Map -XX:ParallelGCThreads= to -XgcThreadsN */
+	if (registerCmdLineMapping(vm, MAPOPT_XXPARALLELGCTHREADS_EQUALS, VMOPT_XGCTHREADS, EXACT_MAP_WITH_OPTIONS) == RC_FAILED) {
+		return RC_FAILED;
+	}
 
 	return 0;
 }
