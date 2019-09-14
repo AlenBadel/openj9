@@ -1863,6 +1863,33 @@ IDATA VMInitStages(J9JavaVM *vm, IDATA stage, void* reserved) {
 			}
 #endif /* !defined(WIN32) && !defined(J9ZTPF) */
 
+			/* Mapping -XX:+UseLargePages, and  -XX:LargePageSizeInBytes=<size> */
+			{
+				/*
+				xlpPageSize can have three states:
+					1)  is NULL: The User didn't pass either arguments
+					2)	is MAPOPT_XXUSELARGEPAGES: Enable xlp:codecache, and xlp:objectheap 
+					3)	otherwise it contains a size value to enable xlp:codecache<size>, and xlp:objectheap<size>
+				*/
+			
+				if ((argIndex = FIND_AND_CONSUME_ARG(STARTSWITH_MATCH, MAPOPT_XXLARGEPAGESIZEINBYTES_EQUALS, NULL)) >= 0) {
+					char *optname = MAPOPT_XXLARGEPAGESIZEINBYTES_EQUALS;
+					char *value = NULL;
+
+					parseError = GET_OPTION_VALUE(argIndex, optname, &value);
+					if (OPTION_OK != parseError) {
+						parseErrorOption = MAPOPT_XXLARGEPAGESIZEINBYTES_EQUALS;
+						goto _memParseError;
+					}
+					vm->vmRuntimeStateListener.xlpPageSize = value;
+				}
+				else if ((argIndex = FIND_AND_CONSUME_ARG(EXACT_MATCH, MAPOPT_XXUSELARGEPAGES, NULL)) >= 0) {
+					vm->vmRuntimeStateListener.xlpPageSize = MAPOPT_XXUSELARGEPAGES;
+				}
+				else {
+					vm->vmRuntimeStateListener.xlpPageSize = NULL;
+				}
+			}
 			/* Parse options related to idle tuning */
 			{
 				IDATA argIndexGcOnIdleEnable = FIND_AND_CONSUME_ARG(EXACT_MATCH, VMOPT_XXIDLETUNINGGCONIDLEENABLE, NULL);

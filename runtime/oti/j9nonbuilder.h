@@ -5079,6 +5079,7 @@ typedef struct J9VMRuntimeStateListener {
 	U_32 minIdleWaitTime;
 	UDATA idleMinFreeHeap;
 	UDATA idleTuningFlags;
+	char *xlpPageSize;
 } J9VMRuntimeStateListener;
 
 /* Values for J9VMRuntimeStateListener.vmRuntimeState
