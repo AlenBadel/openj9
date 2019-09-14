@@ -101,9 +101,9 @@ endif
   CXXFLAGS += -MMD
 </#if>
 
-CFLAGS += -DOSX -D_REENTRANT -D_FILE_OFFSET_BITS=64 -fstack-protector
-CXXFLAGS += -DOSX -D_REENTRANT -D_FILE_OFFSET_BITS=64 -fstack-protector
-CPPFLAGS += -DOSX -D_REENTRANT -fstack-protector
+CFLAGS += -DOSX -D_REENTRANT -D_FILE_OFFSET_BITS=64
+CXXFLAGS += -DOSX -D_REENTRANT -D_FILE_OFFSET_BITS=64
+CPPFLAGS += -DOSX -D_REENTRANT
 
 <#-- Add Position Independent compile flag -->
 CFLAGS += -fPIC
