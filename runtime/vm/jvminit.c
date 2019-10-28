@@ -1869,7 +1869,36 @@ IDATA VMInitStages(J9JavaVM *vm, IDATA stage, void* reserved) {
 				}
 			}
 #endif /* !defined(WIN32) && !defined(J9ZTPF) */
+			/* Parse options related to Large Pages */
+			{
+				IDATA argIndexUseLargePages = FIND_AND_CONSUME_ARG(EXACT_MATCH, MAPOPT_XXUSELARGEPAGES, NULL);
+				IDATA argIndexLargePageSizeInBytes = FIND_AND_CONSUME_ARG(STARTSWITH_MATCH, MAPOPT_XXLARGEPAGESIZEINBYTES_EQUALS, NULL);
+				
+				if (argIndexUseLargePages > argIndexLargePageSizeInBytes) {
+					vm->largePageArgIndex = argIndexUseLargePages;
+					vm->largePageSizeRequested = -1;
+				}
+				else if (argIndexLargePageSizeInBytes >= 0) {
+					UDATA requestedLargeCodePageSize = 0;
+					char *lpOption = MAPOPT_XXLARGEPAGESIZEINBYTES_EQUALS;
 
+					vm->largePageArgIndex = argIndexLargePageSizeInBytes;
+					
+					/* Extract size argument */
+					parseError = GET_MEMORY_VALUE(argIndexLargePageSizeInBytes, lpOption, requestedLargeCodePageSize);
+
+					if (OPTION_OK != parseError) {
+						parseErrorOption = MAPOPT_XXLARGEPAGESIZEINBYTES_EQUALS;
+						goto _memParseError;
+					}
+					
+					vm->largePageSizeRequested = requestedLargeCodePageSize;
+				}
+				else {
+					vm->largePageArgIndex = -1;
+				}
+
+			}
 			/* Parse options related to idle tuning */
 			{
 				IDATA argIndexGcOnIdleEnable = FIND_AND_CONSUME_ARG(EXACT_MATCH, VMOPT_XXIDLETUNINGGCONIDLEENABLE, NULL);
