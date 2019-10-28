@@ -1441,11 +1441,11 @@ J9::Options::fePreProcess(void * base)
    // fePreProcess is called twice - for AOT and JIT options parsing, which is redundant in terms of
    // processing the -Xlp:codecache options.
    // We should parse the -Xlp:codecache options only once though to avoid duplicate NLS messages.
-   static bool parsedXlpCodeCacheOptions = false;
+   static bool parsedCodeCacheOptions = false;
 
-   if (!parsedXlpCodeCacheOptions)
+   if (!parsedCodeCacheOptions)
       {
-      parsedXlpCodeCacheOptions = true;
+      parsedCodeCacheOptions = true;
 
       UDATA requestedLargeCodePageSize = 0;
       UDATA requestedLargeCodePageFlags = J9PORT_VMEM_PAGE_FLAG_NOT_USED;
@@ -1453,9 +1453,10 @@ J9::Options::fePreProcess(void * base)
       UDATA largePageFlags = 0;
       int32_t xlpCodeCacheIndex = FIND_ARG_IN_VMARGS(STARTSWITH_MATCH, "-Xlp:codecache:", NULL);
       int32_t xlpIndex = FIND_ARG_IN_VMARGS(EXACT_MEMORY_MATCH, "-Xlp", NULL);
-
+      int32_t largePageArgIndex = vm->largePageArgIndex;
+      
       // Parse -Xlp:codecache:pagesize=<size> as the right most option
-      if (xlpCodeCacheIndex > xlpIndex)
+      if (xlpCodeCacheIndex > xlpIndex && xlpCodeCacheIndex > largePageArgIndex)
          {
          TR_XlpCodeCacheOptions parsingState = XLPCC_PARSING_FIRST_OPTION;
          UDATA optionNumber = 1;
@@ -1678,11 +1679,16 @@ J9::Options::fePreProcess(void * base)
             j9nls_printf(PORTLIB, J9NLS_INFO, J9NLS_JIT_OPTIONS_XLP_EXTRA_COMMA);
          }
       // Parse Size -Xlp<size>
-      else if (xlpIndex >= 0)
+      else if (xlpIndex > largePageArgIndex)
          {
          // GET_MEMORY_VALUE macro casts it's second parameter to (char**)&, so a pointer to the option string is passed rather than the string literal.
          char *lpOption = "-Xlp";
          GET_MEMORY_VALUE(xlpIndex, lpOption, requestedLargeCodePageSize);
+         }
+      // Parse -XX:LargePageSizeInBytes=<size>
+      else if (largePageArgIndex >= 0 && vm->largePageSizeRequested != -1)
+         {
+         requestedLargeCodePageSize = vm->largePageSizeRequested;
          }
       
       if (requestedLargeCodePageSize != 0)
@@ -1731,6 +1737,12 @@ J9::Options::fePreProcess(void * base)
                   j9nls_printf(PORTLIB, J9NLS_INFO, J9NLS_JIT_OPTIONS_LARGE_PAGE_SIZE_NOT_SUPPORTED_WITH_PAGETYPE, oldSize, oldQualifier, oldPageType, newSize, newQualifier, newPageType);
                }
             }
+         }
+      // Handle -XX:+UseLargePages
+      else if (largePageArgIndex >= 0)
+         {         
+         // Requesting the largest page size available on the system
+         j9vmem_default_large_page_size_ex(J9PORT_VMEM_MEMORY_MODE_EXECUTE, &largePageSize, &largePageFlags);
          }
       // When no -Xlp arguments are passed, we should use preferred page sizes
       else

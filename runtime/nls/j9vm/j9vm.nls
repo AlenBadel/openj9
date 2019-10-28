@@ -1654,6 +1654,20 @@ J9NLS_VM_IDLE_TUNING_PLATFORM_OR_GC_POLICY_NOT_SUPPORTED.system_action=The JVM w
 J9NLS_VM_IDLE_TUNING_PLATFORM_OR_GC_POLICY_NOT_SUPPORTED.user_response=Refer to the documentation for supported platforms and GC policies.
 # END NON-TRANSLATABLE
 
+J9NLS_VM_OPTIONS_MUST_BE_NUMBER=%s must be followed by a number
+# START NON-TRANSLATABLE
+J9NLS_VM_OPTIONS_MUST_BE_NUMBER.explanation=The specified option must be immediately followed by a number
+J9NLS_VM_OPTIONS_MUST_BE_NUMBER.system_action=The JVM will terminate
+J9NLS_VM_OPTIONS_MUST_BE_NUMBER.user_response=Correct the option
+# END NON-TRANSLATABLE
+
+J9NLS_VM_OPTIONS_INCORRECT_MEMORY_SIZE=Value for '%s' is not correct
+# START NON-TRANSLATABLE
+J9NLS_VM_OPTIONS_INCORRECT_MEMORY_SIZE.explanation=Value specified for the option is not correct
+J9NLS_VM_OPTIONS_INCORRECT_MEMORY_SIZE.system_action=The JVM will terminate
+J9NLS_VM_OPTIONS_INCORRECT_MEMORY_SIZE.user_response=Correct the option
+# END NON-TRANSLATABLE
+
 # first argument is the length of class name
 # second argument is the class name
 J9NLS_VM_CLASS_NOT_VALUE_CAPABLE=
