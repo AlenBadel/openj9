@@ -101,6 +101,11 @@ findArgInVMArgs(J9PortLibrary *portLibrary, J9VMInitArgs* j9vm_args, UDATA match
 
 	hasBeenSet = FALSE;
 	optionLength = strlen(optionName);
+	
+	
+	//printf("optionName:%s\n", optionName);
+	//printf("vmarmgs optionLength:%d\n", optionLength);
+
 
 	if (searchForward) {
 		if (stopAtIndex < j9vm_args->nOptions) {
@@ -127,6 +132,7 @@ findArgInVMArgs(J9PortLibrary *portLibrary, J9VMInitArgs* j9vm_args, UDATA match
 	while ((optionCntr <= searchToIndex) && (optionCntr >= searchFromIndex)) {
 		testString = getOptionString(j9vm_args, optionCntr);				/* may return mapped value */
 		actualString = j9vm_args->actualVMArgs->options[optionCntr].optionString;
+
 		if (testString!=NULL) {
 			success = FALSE;
 			/* counts how many chars of testString match the chars of optionName - result is charCntr */
@@ -140,6 +146,7 @@ findArgInVMArgs(J9PortLibrary *portLibrary, J9VMInitArgs* j9vm_args, UDATA match
 					break;
 				case EXACT_MEMORY_MATCH:
 				case OPTIONAL_LIST_MATCH :
+
 					if (charCntr == optionLength) {										/* startswith or exact match */
 						if (HAS_MAPPING(j9vm_args, optionCntr) && (realMatch == EXACT_MEMORY_MATCH)) {
 							/* once we get here, we know we found the right index, but because the specified option and the mapped

@@ -1438,13 +1438,15 @@ J9::Options::fePreProcess(void * base)
       {
       parsedXlpCodeCacheOptions = true;
 
-      // Found -Xlp:codecache: option, parse the rest.
+      UDATA requestedLargeCodePageSize = 0;
+      UDATA requestedLargeCodePageFlags = J9PORT_VMEM_PAGE_FLAG_NOT_USED;
+      UDATA largePageSize = 0;
+      UDATA largePageFlags = 0;
+      IDATA lpArgIndex;
+
+      /* Found -Xlp:codecache: option, parse the rest. */
       if ((lpccIndex = FIND_ARG_IN_VMARGS(STARTSWITH_MATCH, "-Xlp:codecache:", NULL)) >= 0)
          {
-
-         UDATA requestedLargeCodePageSize = 0;
-         UDATA requestedLargeCodePageFlags = J9PORT_VMEM_PAGE_FLAG_NOT_USED;
-
          /* start parsing with option */
          TR_XlpCodeCacheOptions parsingState = XLPCC_PARSING_FIRST_OPTION;
          UDATA optionNumber = 1;
@@ -1558,12 +1560,13 @@ J9::Options::fePreProcess(void * base)
 
             if (try_scan(&optionsString, "pagesize="))
                {
-                /* try to get memory value */
-               // Given substring, we cannot use GET_MEMORY_VALUE.
-               // Scan for UDATA and M/m,G/g,K/k manually.
+               /* Try to get memory value.
+                * Given substring, we can't use GET_MEMORY_VALUE.
+                * Scan for UDATA and M/m,G/g,K/k manually.
+                */
                UDATA scanResult = scan_udata(&optionsString, &requestedLargeCodePageSize);
 
-               // First scan for the integer string.
+               /* First scan for the integer string. */
                if (0 != scanResult)
                   {
                   if (1 == scanResult)
@@ -1574,7 +1577,7 @@ J9::Options::fePreProcess(void * base)
                   return false;
                   }
 
-               // Check for size qualifiers (G/M/K)
+               /* Check for size qualifiers (G/M/K) */
                UDATA qualifierShiftAmount = 0;
                if(try_scan(&optionsString, "G") || try_scan(&optionsString, "g"))
                   qualifierShiftAmount = 30;
@@ -1585,7 +1588,7 @@ J9::Options::fePreProcess(void * base)
 
                if (0 != qualifierShiftAmount)
                   {
-                  // Check for overflow
+                  /* Check for overflow */
                   if (requestedLargeCodePageSize <= (((UDATA)-1) >> qualifierShiftAmount))
                      {
                      requestedLargeCodePageSize <<= qualifierShiftAmount;
@@ -1639,10 +1642,10 @@ J9::Options::fePreProcess(void * base)
                return false;
             }
 
-         /* --- analyze correctness of entered options --- */
-
-         /* pagesize = <size>
-          *  - this options must be specified for all platforms
+         /* --- analyze correctness of entered options --- 
+          *
+          * pagesize = <size>
+          *    this option must be specified for all platforms
           */
          if (0 == pageSizeHowMany)
             {
@@ -1677,11 +1680,47 @@ J9::Options::fePreProcess(void * base)
          /* print extra comma ignored warning */
          if (extraCommaWarning)
             j9nls_printf(PORTLIB, J9NLS_INFO, J9NLS_JIT_OPTIONS_XLP_EXTRA_COMMA);
+         }
+      /* Parse -XX:LargePageSizeInBytes=<size> */
+      else if (vm->largePageArgIndex != -1 && vm->largePageSizeRequested != -1) 
+         {
+         requestedLargeCodePageSize = vm->largePageSizeRequested;
 
+         /* ZOS - Only Pageable large pages are supported on the codecache */
+         #if defined(J9ZOS390)
+         requestedLargeCodePageFlags = J9PORT_VMEM_PAGE_FLAG_PAGEABLE;
+         #else
+         requestedLargeCodePageFlags = J9PORT_VMEM_PAGE_FLAG_NOT_USED;
+         #endif
+         }
+      /* Process -XX:+UseLargePages */
+      else if (vm->largePageArgIndex != -1)
+         {
+		   j9vmem_default_large_page_size_ex(0, &requestedLargeCodePageSize, &requestedLargeCodePageFlags);
+         if (requestedLargeCodePageSize == 0)
+            return false;
+         }
+      /* Parse Size -Xlp<size> */
+      else
+         {
+         /* Work around: PPC64LE GCC 7.3 Bug prevents Xlp to be searched in FIND_ARGS_IN_VMARGS inside else if condition. */
+         lpArgIndex = FIND_ARG_IN_VMARGS(EXACT_MEMORY_MATCH, "-Xlp", NULL);
+         if (lpArgIndex >= 0)
+            {
+            char *lpOption = "-Xlp";
+            GET_MEMORY_VALUE(lpArgIndex, lpOption, requestedLargeCodePageSize);
+            }
+         }
+      
+      UDATA largeCodePageSize = 0;
+      UDATA largeCodePageFlags = 0;
+
+      if (requestedLargeCodePageSize != 0)
+         {
          // Check to see if requested size is valid
-         UDATA largeCodePageSize = requestedLargeCodePageSize;
-         UDATA largeCodePageFlags = requestedLargeCodePageFlags;
          BOOLEAN isRequestedSizeSupported = FALSE;
+         largeCodePageSize = requestedLargeCodePageSize;
+         largeCodePageFlags = requestedLargeCodePageFlags;
 
          /*
           * j9vmem_find_valid_page_size happened to be changed to always return 0
@@ -1691,14 +1730,14 @@ J9::Options::fePreProcess(void * base)
 
          if (!isRequestedSizeSupported)
             {
-            // Generate warning message for user that requested page sizes / type is not supported.
+            /* Generate warning message for user that requested page sizes / type is not supported. */
             char *oldQualifier, *newQualifier;
             char *oldPageType = NULL;
             char *newPageType = NULL;
             UDATA oldSize = requestedLargeCodePageSize;
             UDATA newSize = largeCodePageSize;
 
-            // Convert size to K,M,G qualifiers.
+            /* Convert size to K,M,G qualifiers. */
             qualifiedSize(&oldSize, &oldQualifier);
             qualifiedSize(&newSize, &newQualifier);
 
@@ -1730,105 +1769,91 @@ J9::Options::fePreProcess(void * base)
             jitConfig->largeCodePageFlags = largeCodePageFlags;
             }
          }
-      else
+      /* Configure Xlp<Size> */
+      else if (lpArgIndex >= 0 && requestedLargeCodePageSize > 0)
          {
+         BOOLEAN isSizeSupported;  /* not used */
+         largePageSize = (uintptrj_t)requestedLargeCodePageSize;
+         UDATA requestedLargeCodePageFlags = J9PORT_VMEM_PAGE_FLAG_NOT_USED;
+         largePageFlags = requestedLargeCodePageFlags;
+         j9vmem_find_valid_page_size(J9PORT_VMEM_MEMORY_MODE_EXECUTE, &largePageSize, &largePageFlags, &isSizeSupported);
 
-         UDATA largePageSize = 0;
-         UDATA largePageFlags = 0;
-         int32_t lpArgIndex;
-         UDATA lpSize = 0;
-
-         // -Xlp<size>, attempt to use specified page size
-         if ((lpArgIndex=FIND_ARG_IN_VMARGS(EXACT_MEMORY_MATCH, "-Xlp", 0)) >= 0)
+         /* specified page size is not used and a different page size will be used */
+         if (!isSizeSupported)
             {
-            GET_MEMORY_VALUE(lpArgIndex, "-Xlp", lpSize);
-            }
+            /* Generate warning message for user that requested page sizes / type is not supported. */
+            char *oldQualifier, *newQualifier;
+            char *oldPageType = NULL;
+            char *newPageType = NULL;
+            UDATA oldSize = requestedLargeCodePageSize;
+            UDATA newSize = largePageSize;
 
-         if (lpSize > 0)
-            {
-            BOOLEAN isSizeSupported;  /* not used */
-            largePageSize = (uintptrj_t)lpSize;
-            UDATA requestedLargeCodePageFlags = J9PORT_VMEM_PAGE_FLAG_NOT_USED;
-            largePageFlags = requestedLargeCodePageFlags;
-            j9vmem_find_valid_page_size(J9PORT_VMEM_MEMORY_MODE_EXECUTE, &largePageSize, &largePageFlags, &isSizeSupported);
+            /* Convert size to K,M,G qualifiers. */
+            qualifiedSize(&oldSize, &oldQualifier);
+            qualifiedSize(&newSize, &newQualifier);
 
-            // specified page size is not used and a different page size will be used
-            if (!isSizeSupported)
+            if (0 == (J9PORT_VMEM_PAGE_FLAG_NOT_USED & requestedLargeCodePageFlags))
+            oldPageType = getLargePageTypeString(requestedLargeCodePageFlags);
+
+            if (0 == (J9PORT_VMEM_PAGE_FLAG_NOT_USED & largePageFlags))
+            newPageType = getLargePageTypeString(largePageFlags);
+
+            if (NULL == oldPageType)
                {
-               // Generate warning message for user that requested page sizes / type is not supported.
-               char *oldQualifier, *newQualifier;
-               char *oldPageType = NULL;
-               char *newPageType = NULL;
-               UDATA oldSize = lpSize;
-               UDATA newSize = largePageSize;
-
-               // Convert size to K,M,G qualifiers.
-               qualifiedSize(&oldSize, &oldQualifier);
-               qualifiedSize(&newSize, &newQualifier);
-
-               if (0 == (J9PORT_VMEM_PAGE_FLAG_NOT_USED & requestedLargeCodePageFlags))
-               oldPageType = getLargePageTypeString(requestedLargeCodePageFlags);
-
-               if (0 == (J9PORT_VMEM_PAGE_FLAG_NOT_USED & largePageFlags))
-               newPageType = getLargePageTypeString(largePageFlags);
-
-               if (NULL == oldPageType)
-                  {
-                  if (NULL == newPageType)
-                     j9nls_printf(PORTLIB, J9NLS_INFO, J9NLS_JIT_OPTIONS_LARGE_PAGE_SIZE_NOT_SUPPORTED, oldSize, oldQualifier, newSize, newQualifier);
-                  else
-                     j9nls_printf(PORTLIB, J9NLS_INFO, J9NLS_JIT_OPTIONS_LARGE_PAGE_SIZE_NOT_SUPPORTED_WITH_NEW_PAGETYPE, oldSize, oldQualifier, newSize, newQualifier, newPageType);
-                  }
+               if (NULL == newPageType)
+                  j9nls_printf(PORTLIB, J9NLS_INFO, J9NLS_JIT_OPTIONS_LARGE_PAGE_SIZE_NOT_SUPPORTED, oldSize, oldQualifier, newSize, newQualifier);
                else
-                  {
-                  if (NULL == newPageType)
-                     j9nls_printf(PORTLIB, J9NLS_INFO, J9NLS_JIT_OPTIONS_LARGE_PAGE_SIZE_NOT_SUPPORTED_WITH_REQUESTED_PAGETYPE, oldSize, oldQualifier, oldPageType, newSize, newQualifier);
-                  else
-                     j9nls_printf(PORTLIB, J9NLS_INFO, J9NLS_JIT_OPTIONS_LARGE_PAGE_SIZE_NOT_SUPPORTED_WITH_PAGETYPE, oldSize, oldQualifier, oldPageType, newSize, newQualifier, newPageType);
-                  }
+                  j9nls_printf(PORTLIB, J9NLS_INFO, J9NLS_JIT_OPTIONS_LARGE_PAGE_SIZE_NOT_SUPPORTED_WITH_NEW_PAGETYPE, oldSize, oldQualifier, newSize, newQualifier, newPageType);
                }
-            }
-            // No <size> for -Xlp or -Xlp:codecache, default (and -Xlp) behavior is to use preferred page size
             else
                {
-               UDATA *pageSizes = j9vmem_supported_page_sizes();
-               UDATA *pageFlags = j9vmem_supported_page_flags();
-               largePageSize = pageSizes[0]; /* Default page size is always the first element */
-               largePageFlags = pageFlags[0];
+               if (NULL == newPageType)
+                  j9nls_printf(PORTLIB, J9NLS_INFO, J9NLS_JIT_OPTIONS_LARGE_PAGE_SIZE_NOT_SUPPORTED_WITH_REQUESTED_PAGETYPE, oldSize, oldQualifier, oldPageType, newSize, newQualifier);
+               else
+                  j9nls_printf(PORTLIB, J9NLS_INFO, J9NLS_JIT_OPTIONS_LARGE_PAGE_SIZE_NOT_SUPPORTED_WITH_PAGETYPE, oldSize, oldQualifier, oldPageType, newSize, newQualifier, newPageType);
+               }
+            }
+         }
+      /* No <size> for -Xlp or -Xlp:codecache, default (and -Xlp) behavior is to use preferred page size */
+      else
+         {
+         UDATA *pageSizes = j9vmem_supported_page_sizes();
+         UDATA *pageFlags = j9vmem_supported_page_flags();
+         largeCodePageSize = pageSizes[0]; /* Default page size is always the first element */
+         largeCodePageFlags = pageFlags[0];
 
-               UDATA preferredPageSize = 0;
-               UDATA hugePreferredPageSize = 0;
-   #if defined(TR_TARGET_POWER)
-               preferredPageSize = 65536;
-   #elif (defined(LINUX) && defined(TR_TARGET_X86))
-               preferredPageSize = 2097152;
-               hugePreferredPageSize = 0x40000000;
-   #elif (defined(TR_TARGET_S390))
-               preferredPageSize = 1048576;
-   #endif
-               if (0 != preferredPageSize)
+         UDATA preferredPageSize = 0;
+         UDATA hugePreferredPageSize = 0;
+         #if defined(TR_TARGET_POWER)
+         preferredPageSize = 65536;
+         #elif (defined(LINUX) && defined(TR_TARGET_X86))
+         preferredPageSize = 2097152;
+         hugePreferredPageSize = 0x40000000;
+         #elif (defined(TR_TARGET_S390))
+         preferredPageSize = 1048576;
+         #endif
+         if (0 != preferredPageSize)
+            {
+            for (UDATA pageIndex = 0; 0 != pageSizes[pageIndex]; ++pageIndex)
+               {
+               if ( (preferredPageSize == pageSizes[pageIndex] || hugePreferredPageSize == pageSizes[pageIndex])
+               #if defined(J9ZOS390)
+                     /* zOS doesn't support non-pageable large pages for JIT code cache. */
+                     && (0 != (J9PORT_VMEM_PAGE_FLAG_PAGEABLE & pageFlags[pageIndex]))
+               #endif
+               )
                   {
-                  for (UDATA pageIndex = 0; 0 != pageSizes[pageIndex]; ++pageIndex)
-                     {
-                     if ( (preferredPageSize == pageSizes[pageIndex] || hugePreferredPageSize == pageSizes[pageIndex])
-#if defined(J9ZOS390)
-                          // zOS doesn't support non-pageable large pages for JIT code cache.
-                          && (0 != (J9PORT_VMEM_PAGE_FLAG_PAGEABLE & pageFlags[pageIndex]))
-#endif
-                     )
-                        {
-                        largePageSize = pageSizes[pageIndex];
-                        largePageFlags = pageFlags[pageIndex];
-                        }
-                     }
+                  largeCodePageSize = pageSizes[pageIndex];
+                  largeCodePageFlags = pageFlags[pageIndex];
                   }
                }
+            }
+         }
 
-            if (largePageSize > (0) && isNonNegativePowerOf2((int32_t)largePageSize))
-               {
-               jitConfig->largeCodePageSize = (int32_t)largePageSize;
-               jitConfig->largeCodePageFlags = (int32_t)largePageFlags;
-               }
+      if (largePageSize > (0) && isNonNegativePowerOf2((int32_t)largePageSize))
+         {
+         jitConfig->largeCodePageSize = (int32_t)largePageSize;
+         jitConfig->largeCodePageFlags = (int32_t)largePageFlags;
          }
       }
 
@@ -1863,7 +1888,7 @@ J9::Options::fePreProcess(void * base)
    preferTLHPrefetch = TR::Compiler->target.cpu.getSupportsArch(TR::CPU::z10);
 #else /* TR_HOST_X86 */
    preferTLHPrefetch = true;
-   // Disable TM on x86 because we cannot tell whether a Haswell chip supports TM or not, plus it's killing the performance on dayTrader3
+   //Disable TM on x86 because we cannot tell whether a Haswell chip supports TM or not, plus it's killing the performance on dayTrader3
    self()->setOption(TR_DisableTM);
 #endif
 

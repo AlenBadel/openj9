@@ -1856,7 +1856,70 @@ IDATA VMInitStages(J9JavaVM *vm, IDATA stage, void* reserved) {
 				}
 			}
 #endif /* !defined(WIN32) && !defined(J9ZTPF) */
+			/* Parse options related to Large Pages */
+			{
+				IDATA argIndexUseLargePages = FIND_AND_CONSUME_ARG(EXACT_MATCH, MAPOPT_XXUSELARGEPAGES, NULL);
+				IDATA argIndexLargePageSizeInBytes = FIND_AND_CONSUME_ARG(STARTSWITH_MATCH, MAPOPT_XXLARGEPAGESIZEINBYTES_EQUALS, NULL);
 
+				printf("argIndexLargePageSizeInBytes:%d, argIndexUseLargePages%d\n", argIndexLargePageSizeInBytes, argIndexUseLargePages);
+
+				if (argIndexUseLargePages > argIndexLargePageSizeInBytes) {
+					printf("jvminit: Parsing XX:+UseLargePages\n");
+					vm->largePageArgIndex = argIndexUseLargePages;
+					vm->largePageSizeRequested = -1;
+				}
+				else if (argIndexLargePageSizeInBytes >= 0) {
+					printf("jvminit: Parsing XX:+LargePageInBytes\n");
+					vm->largePageArgIndex = argIndexLargePageSizeInBytes;
+					/* Extract size argument */
+					char* memoryValue = NULL;
+					parseError = GET_OPTION_VALUE(argIndexLargePageSizeInBytes, '=', &memoryValue);
+
+					if (OPTION_OK != parseError) {
+						parseErrorOption = MAPOPT_XXLARGEPAGESIZEINBYTES_EQUALS;
+						goto _memParseError;
+					}
+
+					printf("Extracting Input size:%s\n", memoryValue);
+
+   					UDATA qualifierShiftAmount = 0;
+					UDATA requestedLargeCodePageSize = 0;
+
+					UDATA scanResult = scan_udata(&memoryValue, &requestedLargeCodePageSize);
+					if(try_scan(&memoryValue, "G") || try_scan(&memoryValue, "g"))
+      					qualifierShiftAmount = 30;
+   					else if(try_scan(&memoryValue, "M") || try_scan(&memoryValue, "m"))
+      					qualifierShiftAmount = 20;
+   					else if(try_scan(&memoryValue, "K") || try_scan(&memoryValue, "k"))
+      					qualifierShiftAmount = 10;
+
+					if (0 != qualifierShiftAmount)
+					{
+					// Check for overflow
+					if (requestedLargeCodePageSize <= (((UDATA)-1) >> qualifierShiftAmount))
+						{
+						requestedLargeCodePageSize <<= qualifierShiftAmount;
+						}
+					else
+						{
+						parseErrorOption = MAPOPT_XXLARGEPAGESIZEINBYTES_EQUALS;
+						parseError = OPTION_OVERFLOW;
+						goto _memParseError;
+						}
+					}
+					printf("Parsed Value%d\n", requestedLargeCodePageSize);
+					vm->largePageSizeRequested = requestedLargeCodePageSize;
+				}
+				else {
+					vm->largePageArgIndex = -1;
+				}
+
+				if (vm->largePageArgIndex != -1) {
+					printf("Parsing: vm->largePageArgIndex:%d\n", vm->largePageArgIndex);
+					printf("Parsing: vm->largePageSizeRequested:%d\n", vm->largePageSizeRequested);
+				}
+
+			}
 			/* Parse options related to idle tuning */
 			{
 				IDATA argIndexGcOnIdleEnable = FIND_AND_CONSUME_ARG(EXACT_MATCH, VMOPT_XXIDLETUNINGGCONIDLEENABLE, NULL);
@@ -4106,6 +4169,16 @@ registerVMCmdLineMappings(J9JavaVM* vm)
 	}
 	/* Map -XX:-ExitOnOutOfMemoryError to -Xdump:exit:none:events=throw+systhrow,filter=java/lang/OutOfMemoryError */ 
 	if (registerCmdLineMapping(vm, MAPOPT_XXDISABLEEXITONOUTOFMEMORYERROR, VMOPT_XDUMP_EXIT_OUTOFMEMORYERROR_DISABLE, EXACT_MAP_NO_OPTIONS) == RC_FAILED) {
+	/* Map -XX:ParallelCMSThreads=N to -Xconcurrentbackground */
+	if (registerCmdLineMapping(vm, MAPOPT_XXPARALLELCMSTHREADS_EQUALS, VMOPT_XCONCURRENTBACKGROUND, EXACT_MAP_WITH_OPTIONS) == RC_FAILED) {
+		return RC_FAILED;
+	}
+	/* Map -XX:ConcGCThreads=N  to -Xconcurrentbackground */
+	if (registerCmdLineMapping(vm, MAPOPT_XXCONCGCTHREADS_EQUALS, VMOPT_XCONCURRENTBACKGROUND, EXACT_MAP_WITH_OPTIONS) == RC_FAILED) {
+		return RC_FAILED;
+	}
+	/* Map -XX:ParallelGCThreads=N  to -XgcthreadsN */
+	if (registerCmdLineMapping(vm, MAPOPT_XXPARALLELGCTHREADS_EQUALS, VMOPT_XGCTHREADS, EXACT_MAP_WITH_OPTIONS) == RC_FAILED) {
 		return RC_FAILED;
 	}
 

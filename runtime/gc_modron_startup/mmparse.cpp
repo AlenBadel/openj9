@@ -587,9 +587,11 @@ gcParseXlpOption(J9JavaVM *vm)
 	/* Parse -Xlp option. 
 	 * -Xlp option enables large pages with the default large page size, but will not
 	 * override any -Xlp<size> or -Xlp:objectheap:pagesize=<size> option.
+	 * 
+	 * -XX:+UseLargePages. Has Same behaviour as -Xlp. Check if it has been parsed.
 	 */
 	xlpIndex = option_set(vm, "-Xlp", EXACT_MATCH);
-	if (-1 != xlpIndex) {
+	if (-1 != xlpIndex || (-1 != vm->largePageArgIndex && -1 == vm->largePageSizeRequested)) {
 		UDATA defaultLargePageSize = 0;
 		UDATA defaultLargePageFlags = J9PORT_VMEM_PAGE_FLAG_NOT_USED;
 		j9vmem_default_large_page_size_ex(0, &defaultLargePageSize, &defaultLargePageFlags);
@@ -597,11 +599,17 @@ gcParseXlpOption(J9JavaVM *vm)
 			extensions->requestedPageSize = defaultLargePageSize;
 			extensions->requestedPageFlags = defaultLargePageFlags;
 		} else {
-			xlpErrorState = XLP_OPTION_NOT_SUPPORTED;
-			xlpError.xlpOptionErrorString = "-Xlp";
-			/* Cannot report error message here,
-			 * as we may find a valid "-Xlp:objectheap" that overwrites this option
-			 */
+			if (xlpIndex > vm->largePageArgIndex) {
+				/* Cannot report error message here,
+			 	 * as we may find a valid "-Xlp:objectheap" that overwrites this option
+			 	 */
+				xlpErrorState = XLP_OPTION_NOT_SUPPORTED;
+				xlpError.xlpOptionErrorString = "-Xlp";
+			}
+			else {
+				j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_GC_OPTIONS_SYSTEM_CONFIG_OPTION_NOT_SUPPORTED, "-XX:+UseLargePages");
+				return false;
+			}
 		}
 	}
 
@@ -669,9 +677,19 @@ gcParseXlpOption(J9JavaVM *vm)
 		goto _reportXlpError;
 	}
 
+	/* If -XX:LargePageSizeInBytes=<size> is specified */
+	if ((vm->largePageArgIndex != -1) && (vm->largePageSizeRequested != -1) && (vm->largePageArgIndex > xlpObjectHeapIndex) && (vm->largePageArgIndex > xlpMemIndex)) {
+		requestedPageSize = vm->largePageSizeRequested;
+#if defined(J9ZOS390)
+		requestedPageFlags = J9PORT_VMEM_PAGE_FLAG_PAGEABLE;
+#else /* defined(J9ZOS390) */
+		requestedPageFlags = J9PORT_VMEM_PAGE_FLAG_NOT_USED;
+#endif 
+	}
+
 	/* If a valid -Xlp<size> or -Xlp:objectheap:pagesize=<size> is present, check if the requested page size is supported */
 	/* We don't need to check error state here - we did goto for all errors */
-	if ((-1 != xlpMemIndex) || (-1 != xlpObjectHeapIndex)) {
+	if ((-1 != xlpMemIndex) || (-1 != xlpObjectHeapIndex) || (-1 != vm->largePageArgIndex)) {
 		UDATA pageSize = requestedPageSize;
 		UDATA pageFlags = requestedPageFlags;
 		BOOLEAN isRequestedSizeSupported = FALSE;
