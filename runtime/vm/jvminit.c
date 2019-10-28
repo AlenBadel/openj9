@@ -1867,6 +1867,7 @@ IDATA VMInitStages(J9JavaVM *vm, IDATA stage, void* reserved) {
 				}
 				else if (argIndexLargePageSizeInBytes >= 0) {
 					vm->largePageArgIndex = argIndexLargePageSizeInBytes;
+					/* Extract size argument */
 					char* memoryValue = NULL;
 					parseError = GET_OPTION_VALUE(argIndexLargePageSizeInBytes, '=', &memoryValue);
 
@@ -1880,7 +1881,7 @@ IDATA VMInitStages(J9JavaVM *vm, IDATA stage, void* reserved) {
 
 					UDATA scanResult = scan_udata(&memoryValue, &requestedLargeCodePageSize);
 
-					/* First scan for the integer string */
+					// First scan for the integer string.
 					if (0 != scanResult) {
 						if (1 == scanResult)
 							j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_VM_OPTIONS_MUST_BE_NUMBER);
@@ -1900,7 +1901,11 @@ IDATA VMInitStages(J9JavaVM *vm, IDATA stage, void* reserved) {
 
 					if (0 != qualifierShiftAmount)
 					{
+<<<<<<< HEAD
 					/* Check for overflow */
+=======
+					// Check for overflow
+>>>>>>> e41e1a688... Add Support for Hotspot Codecache and Objectheap Options
 					if (requestedLargeCodePageSize <= (((UDATA)-1) >> qualifierShiftAmount))
 						{
 						requestedLargeCodePageSize <<= qualifierShiftAmount;
