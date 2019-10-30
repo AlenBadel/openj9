@@ -1735,13 +1735,13 @@ J9::Options::fePreProcess(void * base)
 
          UDATA largePageSize = 0;
          UDATA largePageFlags = 0;
-         int32_t lpArgIndex;
          UDATA lpSize = 0;
-
+         int32_t lpArgIndex;
+         char *lpOption = "-Xlp";
          // -Xlp<size>, attempt to use specified page size
-         if ((lpArgIndex=FIND_ARG_IN_VMARGS(EXACT_MEMORY_MATCH, "-Xlp", 0)) >= 0)
+         if ((lpArgIndex=FIND_ARG_IN_VMARGS(EXACT_MEMORY_MATCH, lpOption, 0)) >= 0)
             {
-            GET_MEMORY_VALUE(lpArgIndex, "-Xlp", lpSize);
+            GET_MEMORY_VALUE(lpArgIndex, lpOption, lpSize);
             }
 
          if (lpSize > 0)
