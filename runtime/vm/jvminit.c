@@ -1856,7 +1856,69 @@ IDATA VMInitStages(J9JavaVM *vm, IDATA stage, void* reserved) {
 				}
 			}
 #endif /* !defined(WIN32) && !defined(J9ZTPF) */
+			/* Parse options related to Large Pages */
+			{
+				IDATA argIndexUseLargePages = FIND_AND_CONSUME_ARG(EXACT_MATCH, MAPOPT_XXUSELARGEPAGES, NULL);
+				IDATA argIndexLargePageSizeInBytes = FIND_AND_CONSUME_ARG(STARTSWITH_MATCH, MAPOPT_XXLARGEPAGESIZEINBYTES_EQUALS, NULL);
 
+				if (argIndexUseLargePages > argIndexLargePageSizeInBytes) {
+					vm->largePageArgIndex = argIndexUseLargePages;
+					vm->largePageSizeRequested = -1;
+				}
+				else if (argIndexLargePageSizeInBytes >= 0) {
+					vm->largePageArgIndex = argIndexLargePageSizeInBytes;
+					char* memoryValue = NULL;
+					parseError = GET_OPTION_VALUE(argIndexLargePageSizeInBytes, '=', &memoryValue);
+
+					if (OPTION_OK != parseError) {
+						parseErrorOption = MAPOPT_XXLARGEPAGESIZEINBYTES_EQUALS;
+						goto _memParseError;
+					}
+
+   					UDATA qualifierShiftAmount = 0;
+					UDATA requestedLargeCodePageSize = 0;
+
+					UDATA scanResult = scan_udata(&memoryValue, &requestedLargeCodePageSize);
+
+					/* First scan for the integer string */
+					if (0 != scanResult) {
+						if (1 == scanResult)
+							j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_VM_OPTIONS_MUST_BE_NUMBER);
+						else
+							j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_VM_OPTION_OVERFLOW);
+						j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_VM_OPTIONS_INCORRECT_MEMORY_SIZE, "-XX:LargePageSizeInBytes=");
+						parseErrorOption = MAPOPT_XXLARGEPAGESIZEINBYTES_EQUALS;
+						goto _memParseError;
+					}
+
+					if(try_scan(&memoryValue, "G") || try_scan(&memoryValue, "g"))
+      					qualifierShiftAmount = 30;
+   					else if(try_scan(&memoryValue, "M") || try_scan(&memoryValue, "m"))
+      					qualifierShiftAmount = 20;
+   					else if(try_scan(&memoryValue, "K") || try_scan(&memoryValue, "k"))
+      					qualifierShiftAmount = 10;
+
+					if (0 != qualifierShiftAmount)
+					{
+					/* Check for overflow */
+					if (requestedLargeCodePageSize <= (((UDATA)-1) >> qualifierShiftAmount))
+						{
+						requestedLargeCodePageSize <<= qualifierShiftAmount;
+						}
+					else
+						{
+						parseErrorOption = MAPOPT_XXLARGEPAGESIZEINBYTES_EQUALS;
+						parseError = OPTION_OVERFLOW;
+						goto _memParseError;
+						}
+					}
+					vm->largePageSizeRequested = requestedLargeCodePageSize;
+				}
+				else {
+					vm->largePageArgIndex = -1;
+				}
+
+			}
 			/* Parse options related to idle tuning */
 			{
 				IDATA argIndexGcOnIdleEnable = FIND_AND_CONSUME_ARG(EXACT_MATCH, VMOPT_XXIDLETUNINGGCONIDLEENABLE, NULL);
