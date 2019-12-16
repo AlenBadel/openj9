@@ -1868,55 +1868,15 @@ IDATA VMInitStages(J9JavaVM *vm, IDATA stage, void* reserved) {
 				else if (argIndexLargePageSizeInBytes >= 0) {
 					vm->largePageArgIndex = argIndexLargePageSizeInBytes;
 					/* Extract size argument */
-					char* memoryValue = NULL;
-					parseError = GET_OPTION_VALUE(argIndexLargePageSizeInBytes, '=', &memoryValue);
+					UDATA requestedLargeCodePageSize = 0;
+					char *lpOption = "-XX:LargePageSizeInBytes=";
+					parseError = GET_MEMORY_VALUE(argIndexLargePageSizeInBytes, lpOption, requestedLargeCodePageSize);
 
 					if (OPTION_OK != parseError) {
 						parseErrorOption = MAPOPT_XXLARGEPAGESIZEINBYTES_EQUALS;
 						goto _memParseError;
 					}
-
-   					UDATA qualifierShiftAmount = 0;
-					UDATA requestedLargeCodePageSize = 0;
-
-					UDATA scanResult = scan_udata(&memoryValue, &requestedLargeCodePageSize);
-
-					// First scan for the integer string.
-					if (0 != scanResult) {
-						if (1 == scanResult)
-							j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_VM_OPTIONS_MUST_BE_NUMBER);
-						else
-							j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_VM_OPTION_OVERFLOW);
-						j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_VM_OPTIONS_INCORRECT_MEMORY_SIZE, "-XX:LargePageSizeInBytes=");
-						parseErrorOption = MAPOPT_XXLARGEPAGESIZEINBYTES_EQUALS;
-						goto _memParseError;
-					}
-
-					if(try_scan(&memoryValue, "G") || try_scan(&memoryValue, "g"))
-      					qualifierShiftAmount = 30;
-   					else if(try_scan(&memoryValue, "M") || try_scan(&memoryValue, "m"))
-      					qualifierShiftAmount = 20;
-   					else if(try_scan(&memoryValue, "K") || try_scan(&memoryValue, "k"))
-      					qualifierShiftAmount = 10;
-
-					if (0 != qualifierShiftAmount)
-					{
-<<<<<<< HEAD
-					/* Check for overflow */
-=======
-					// Check for overflow
->>>>>>> e41e1a688... Add Support for Hotspot Codecache and Objectheap Options
-					if (requestedLargeCodePageSize <= (((UDATA)-1) >> qualifierShiftAmount))
-						{
-						requestedLargeCodePageSize <<= qualifierShiftAmount;
-						}
-					else
-						{
-						parseErrorOption = MAPOPT_XXLARGEPAGESIZEINBYTES_EQUALS;
-						parseError = OPTION_OVERFLOW;
-						goto _memParseError;
-						}
-					}
+					
 					vm->largePageSizeRequested = requestedLargeCodePageSize;
 				}
 				else {
