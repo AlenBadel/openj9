@@ -594,7 +594,7 @@ gcParseXlpOption(J9JavaVM *vm)
 		UDATA defaultLargePageFlags = J9PORT_VMEM_PAGE_FLAG_NOT_USED;
 		j9vmem_default_large_page_size_ex(0, &defaultLargePageSize, &defaultLargePageFlags);
 		// Determine what pagetype is used
-		printf("gcParseXlpOption Largepagesize:%d\n", defaultLargePageSize);
+		printf("gcParseXlpOption Largepagesize:%d\n", (int)defaultLargePageSize);
 		if (defaultLargePageFlags == J9PORT_VMEM_PAGE_FLAG_PAGEABLE)
 			printf("gcParseXlpOption: Got Pageable\n");
 		else if (defaultLargePageFlags == J9PORT_VMEM_PAGE_FLAG_FIXED)
