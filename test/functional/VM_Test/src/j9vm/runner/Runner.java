@@ -68,6 +68,7 @@ public class Runner {
 	private void setPlatform() {
 		
 		String OSSpec = System.getProperty("os.name").toLowerCase();
+		System.out.println("Runner OSSpec:" + OSSpec);
 		if (OSSpec != null) {
 			/* Get OS from the spec string */
 			if (OSSpec.contains("aix")) {
@@ -84,6 +85,7 @@ public class Runner {
 			}
 		}
 		String archSpec = System.getProperty("os.arch").toLowerCase();
+		System.out.println("Runner archSpec:" + archSpec);
 		if (archSpec != null) {
 			/* Get arch from spec string */
 			if (archSpec.contains("ppc")) {
