@@ -108,7 +108,7 @@ public class XlpCodeCacheOptionsTestRunner extends Runner {
 			/* Test multiple -Xlp:codecache: options. In such cases rightmost option wins */
 			xlpOptionsList.add(new XlpOption("-Xlp:codecache:pagesize=64K -Xlp:codecache:pagesize=16M", 16 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
 			xlpOptionsList.add(new XlpOption("-Xlp:codecache:pagesize=16M -Xlp:codecache:pagesize=64K", 64 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-		} else if ((osName == OSName.LINUX) || (osName == OSName.WINDOWS)) {
+		} else if ((osName == OSName.LINUX) || (osName == OSName.WINDOWS) || (osName == osName.MACOS)) {
 			/* No -Xlp option */
 			xlpOptionsList.add(new XlpOption(null, false));
 

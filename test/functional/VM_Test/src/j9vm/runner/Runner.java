@@ -33,6 +33,7 @@ public class Runner {
 		LINUX,
 		WINDOWS,
 		ZOS,
+		MACOS,
 		UNKNOWN
 	}
 	
@@ -79,6 +80,8 @@ public class Runner {
 				osName = OSName.WINDOWS;
 			} else if (OSSpec.contains("z/os")) {
 				osName = OSName.ZOS;
+			} else if (OSSpec.contains("mac")) {
+				osName = OSName.MACOS;
 			} else {
 				System.out.println("Runner couldn't determine underlying OS. Got OS Name:" + OSSpec);
 				osName = OSName.UNKNOWN;
