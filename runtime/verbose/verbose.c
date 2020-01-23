@@ -277,11 +277,15 @@ dumpXlpCodeCache(J9JavaVM *jvm)
 
 			j9tty_printf(PORTLIB, "  %*s %s", spaceCount, " ", optionDescription);
 
+			printf("Codecache printing verbose page sizes\n");
+
 			for(pageIndex = 0; 0 != pageSizes[pageIndex]; pageIndex++) {
 				pageSizeEntry = pageSizes[pageIndex];
 				pageFlagsEntry = pageFlags[pageIndex];
 				isSupported = FALSE;
 
+				printf("Size:%d \n", pageSizeEntry);
+				
 				j9vmem_find_valid_page_size(J9PORT_VMEM_MEMORY_MODE_EXECUTE, &pageSizeEntry, &pageFlagsEntry, &isSupported);
 				if (TRUE == isSupported) {
 					pageSizeEntry = getQualifiedSize(pageSizeEntry, &qualifier);
