@@ -277,24 +277,16 @@ dumpXlpCodeCache(J9JavaVM *jvm)
 
 			j9tty_printf(PORTLIB, "  %*s %s", spaceCount, " ", optionDescription);
 
-			printf("Codecache printing verbose page sizes\n");
+			//printf("Codecache printing verbose page sizes\n");
 
 			for(pageIndex = 0; 0 != pageSizes[pageIndex]; pageIndex++) {
 				pageSizeEntry = pageSizes[pageIndex];
 				pageFlagsEntry = pageFlags[pageIndex];
-				isSupported = FALSE;
 
-				printf("Size:%d \n", pageSizeEntry);
-				
-				j9vmem_find_valid_page_size(J9PORT_VMEM_MEMORY_MODE_EXECUTE, &pageSizeEntry, &pageFlagsEntry, &isSupported);
-				if (TRUE == isSupported) {
-					pageSizeEntry = getQualifiedSize(pageSizeEntry, &qualifier);
-					j9tty_printf(PORTLIB, "\n  %*s %zu%s", spaceCount, " ", pageSizeEntry, qualifier);
-					if (J9PORT_VMEM_PAGE_FLAG_NOT_USED != (J9PORT_VMEM_PAGE_FLAG_NOT_USED & pageFlagsEntry)) {
-						j9tty_printf(PORTLIB, " %s", getPageTypeString(pageFlagsEntry));
-					}
-				} else {
-					/* This page size does not support executable pages, skip it. */
+				pageSizeEntry = getQualifiedSize(pageSizeEntry, &qualifier);
+				j9tty_printf(PORTLIB, "\n  %*s %zu%s", spaceCount, " ", pageSizeEntry, qualifier);
+				if (J9PORT_VMEM_PAGE_FLAG_NOT_USED != (J9PORT_VMEM_PAGE_FLAG_NOT_USED & pageFlagsEntry)) {
+					j9tty_printf(PORTLIB, " %s", getPageTypeString(pageFlagsEntry));
 				}
 			}
 			j9tty_printf(PORTLIB, "\n");
