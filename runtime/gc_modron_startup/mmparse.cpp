@@ -590,9 +590,11 @@ gcParseXlpOption(J9JavaVM *vm)
 	 */
 	xlpIndex = option_set(vm, "-Xlp", EXACT_MATCH);
 	if (-1 != xlpIndex) {
+		printf("Objectheap: Found Xlp Option\n");
 		UDATA defaultLargePageSize = 0;
 		UDATA defaultLargePageFlags = J9PORT_VMEM_PAGE_FLAG_NOT_USED;
 		j9vmem_default_large_page_size_ex(0, &defaultLargePageSize, &defaultLargePageFlags);
+		printf("Objectheap: Got Default Large Page Size:%d\n", defaultLargePageSize);
 		if (0 != defaultLargePageSize) {
 			extensions->requestedPageSize = defaultLargePageSize;
 			extensions->requestedPageFlags = defaultLargePageFlags;
