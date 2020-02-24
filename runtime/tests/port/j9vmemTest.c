@@ -2883,9 +2883,9 @@ j9vmem_testFindValidPageSize_impl(struct J9PortLibrary *portLibrary, char *testN
 
 	j9vmem_find_valid_page_size(mode, &requestedPageSize, &requestedPageFlags, &isSizeSupported);
 #if defined(J9VM_ENV_DATA64)
-	if (0 != defaultLargePageSize) {
-		expectedPageSize = defaultLargePageSize;
-		expectedPageFlags = defaultLargePageFlags;
+	if (TRUE == oneMBFixed) {
+        expectedPageSize = ONE_MB;
+		expectedPageFlags = J9PORT_VMEM_PAGE_FLAG_FIXED;
 		expectedIsSizeSupported = TRUE;
 	} else
 #endif /* defined(J9VM_ENV_DATA64) */
