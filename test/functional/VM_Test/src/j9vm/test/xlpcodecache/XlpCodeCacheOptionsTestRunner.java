@@ -103,15 +103,15 @@ public class XlpCodeCacheOptionsTestRunner extends Runner {
 			xlpOptionsList.add(new XlpOption("-Xlp", true));
 
 			/* Test '-Xlp<size>'' options */
-			xlpOptionsList.add(new XlpOption("-Xlp4K", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			xlpOptionsList.add(new XlpOption("-Xlp64K", 64 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			xlpOptionsList.add(new XlpOption("-Xlp16M", 16 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
+			//xlpOptionsList.add(new XlpOption("-Xlp4K", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
+			//xlpOptionsList.add(new XlpOption("-Xlp64K", 64 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
+			//xlpOptionsList.add(new XlpOption("-Xlp16M", 16 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
 			/* Value larger than or equal to 4G for pagesize on 32-bit JVM will cause JVM startup to fail */
-			if (addrMode == AddrMode.BIT64) {
-				xlpOptionsList.add(new XlpOption("-Xlp16G", 16 * ONE_GB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			}
+			//if (addrMode == AddrMode.BIT64) {
+			//	xlpOptionsList.add(new XlpOption("-Xlp16G", 16 * ONE_GB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
+			//}
 			/* An unsupported page size (as of now) */
-			xlpOptionsList.add(new XlpOption("-Xlp7M", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
+			//xlpOptionsList.add(new XlpOption("-Xlp7M", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
 
 			/* Test -Xlp:codecache: options. Note that [non]pageable parameters are just ignored. */
 			xlpOptionsList.add(new XlpOption("-Xlp:codecache:pagesize=4K", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
@@ -135,29 +135,29 @@ public class XlpCodeCacheOptionsTestRunner extends Runner {
 			xlpOptionsList.add(new XlpOption("-Xlp:codecache:pagesize=7M,nonpageable", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
 
 			/* Test '-Xlp' with '-Xlp<size>' option. In such case -Xlp is ignored */
-			xlpOptionsList.add(new XlpOption("-Xlp -Xlp4K", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			xlpOptionsList.add(new XlpOption("-Xlp4K -Xlp", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
+			//xlpOptionsList.add(new XlpOption("-Xlp -Xlp4K", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
+			//xlpOptionsList.add(new XlpOption("-Xlp4K -Xlp", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
 
-			xlpOptionsList.add(new XlpOption("-Xlp -Xlp7M", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			xlpOptionsList.add(new XlpOption("-Xlp7M -Xlp", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
+			//xlpOptionsList.add(new XlpOption("-Xlp -Xlp7M", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
+			//xlpOptionsList.add(new XlpOption("-Xlp7M -Xlp", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
 
 			/* Test '-Xlp' with '-Xlp:codecache:pagesize=<size>' option. In such case '-Xlp' is ignored */
-			xlpOptionsList.add(new XlpOption("-Xlp -Xlp:codecache:pagesize=4K", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:codecache:pagesize=4K -Xlp", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
+			//xlpOptionsList.add(new XlpOption("-Xlp -Xlp:codecache:pagesize=4K", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
+			//xlpOptionsList.add(new XlpOption("-Xlp:codecache:pagesize=4K -Xlp", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
 
-			xlpOptionsList.add(new XlpOption("-Xlp -Xlp:codecache:pagesize=7M", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:codecache:pagesize=7M -Xlp", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
+			//xlpOptionsList.add(new XlpOption("-Xlp -Xlp:codecache:pagesize=7M", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
+			//xlpOptionsList.add(new XlpOption("-Xlp:codecache:pagesize=7M -Xlp", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
 
 			/* Test '-Xlp<size>' with '-Xlp:codecache=pagesize<size>' option. In such cases rightmost option wins */
-			xlpOptionsList.add(new XlpOption("-Xlp64K -Xlp:codecache:pagesize=16M", 16 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:codecache:pagesize=16M -Xlp64K", 64 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
+			//xlpOptionsList.add(new XlpOption("-Xlp64K -Xlp:codecache:pagesize=16M", 16 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
+			//xlpOptionsList.add(new XlpOption("-Xlp:codecache:pagesize=16M -Xlp64K", 64 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
 
-			xlpOptionsList.add(new XlpOption("-Xlp16M -Xlp:codecache:pagesize=7M", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:codecache:pagesize=7M -Xlp16M", 16 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
+			//xlpOptionsList.add(new XlpOption("-Xlp16M -Xlp:codecache:pagesize=7M", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
+			//xlpOptionsList.add(new XlpOption("-Xlp:codecache:pagesize=7M -Xlp16M", 16 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
 			
 			/* Test multiple '-Xlp<size>' options. In such cases rightmost option wins */
-			xlpOptionsList.add(new XlpOption("-Xlp64K -Xlp16M", 16 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			xlpOptionsList.add(new XlpOption("-Xlp16M -Xlp64K", 64 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
+			//xlpOptionsList.add(new XlpOption("-Xlp64K -Xlp16M", 16 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
+			//xlpOptionsList.add(new XlpOption("-Xlp16M -Xlp64K", 64 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
 
 			/* Test multiple -Xlp:codecache: options. In such cases rightmost option wins */
 			xlpOptionsList.add(new XlpOption("-Xlp:codecache:pagesize=64K -Xlp:codecache:pagesize=16M", 16 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
@@ -180,11 +180,11 @@ public class XlpCodeCacheOptionsTestRunner extends Runner {
 			xlpOptionsList.add(new XlpOption("-Xlp", true));
 
 			/* Test 'Xlp<size>' options */
-			xlpOptionsList.add(new XlpOption("-Xlp4K", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			xlpOptionsList.add(new XlpOption("-Xlp2M", 2 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			xlpOptionsList.add(new XlpOption("-Xlp4M", 4 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
+			//xlpOptionsList.add(new XlpOption("-Xlp4K", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
+			//xlpOptionsList.add(new XlpOption("-Xlp2M", 2 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
+			//xlpOptionsList.add(new XlpOption("-Xlp4M", 4 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
 			/* Unsupported page size (as of now) */
-			xlpOptionsList.add(new XlpOption("-Xlp7M", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
+			//xlpOptionsList.add(new XlpOption("-Xlp7M", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
 
 			/* Test '-Xlp:codecache:' options. Note that [non]pageable parameters are just ignored. */
 			xlpOptionsList.add(new XlpOption("-Xlp:codecache:pagesize=4K", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
@@ -202,29 +202,29 @@ public class XlpCodeCacheOptionsTestRunner extends Runner {
 			xlpOptionsList.add(new XlpOption("-Xlp:codecache:pagesize=7M,nonpageable", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
 
 			/* Test '-Xlp' with '-Xlp<size>' option. In such case -Xlp is ignored */
-			xlpOptionsList.add(new XlpOption("-Xlp -Xlp2M", 2 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			xlpOptionsList.add(new XlpOption("-Xlp2M -Xlp", 2 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
+			//xlpOptionsList.add(new XlpOption("-Xlp -Xlp2M", 2 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
+			//xlpOptionsList.add(new XlpOption("-Xlp2M -Xlp", 2 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
 
-			xlpOptionsList.add(new XlpOption("-Xlp -Xlp7M", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			xlpOptionsList.add(new XlpOption("-Xlp7M -Xlp", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
+			//xlpOptionsList.add(new XlpOption("-Xlp -Xlp7M", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
+			//xlpOptionsList.add(new XlpOption("-Xlp7M -Xlp", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
 
 			/* Test '-Xlp' with '-Xlp:codecache:pagesize=<size>' option. In such case '-Xlp' is ignored */
-			xlpOptionsList.add(new XlpOption("-Xlp -Xlp:codecache:pagesize=2M", 2 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:codecache:pagesize=2M -Xlp", 2 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
+			//xlpOptionsList.add(new XlpOption("-Xlp -Xlp:codecache:pagesize=2M", 2 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
+			//xlpOptionsList.add(new XlpOption("-Xlp:codecache:pagesize=2M -Xlp", 2 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
 
-			xlpOptionsList.add(new XlpOption("-Xlp -Xlp:codecache:pagesize=7M", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:codecache:pagesize=7M -Xlp", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
+			//xlpOptionsList.add(new XlpOption("-Xlp -Xlp:codecache:pagesize=7M", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
+			//xlpOptionsList.add(new XlpOption("-Xlp:codecache:pagesize=7M -Xlp", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
 
 			/* Test '-Xlp<size>' with '-Xlp:codecache=pagesize<size>' option. In such cases rightmost option wins */
-			xlpOptionsList.add(new XlpOption("-Xlp2M -Xlp:codecache:pagesize=4M", 4 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:codecache:pagesize=4M -Xlp2M", 2 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
+			//xlpOptionsList.add(new XlpOption("-Xlp2M -Xlp:codecache:pagesize=4M", 4 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
+			//xlpOptionsList.add(new XlpOption("-Xlp:codecache:pagesize=4M -Xlp2M", 2 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
 
-			xlpOptionsList.add(new XlpOption("-Xlp2M -Xlp:codecache:pagesize=7M", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:codecache:pagesize=7M -Xlp2M", 2 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
+			//xlpOptionsList.add(new XlpOption("-Xlp2M -Xlp:codecache:pagesize=7M", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
+			//xlpOptionsList.add(new XlpOption("-Xlp:codecache:pagesize=7M -Xlp2M", 2 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
 
 			/* Test multiple '-Xlp<size>' options. In such cases rightmost option wins */
-			xlpOptionsList.add(new XlpOption("-Xlp2M -Xlp4M", 4 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			xlpOptionsList.add(new XlpOption("-Xlp4M -Xlp2M", 2 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
+			//xlpOptionsList.add(new XlpOption("-Xlp2M -Xlp4M", 4 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
+			//xlpOptionsList.add(new XlpOption("-Xlp4M -Xlp2M", 2 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
 
 			/* Test multiple -Xlp:codecache: options. In such cases rightmost option wins */
 			xlpOptionsList.add(new XlpOption("-Xlp:codecache:pagesize=2M -Xlp:codecache:pagesize=4M", 4 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
@@ -246,10 +246,10 @@ public class XlpCodeCacheOptionsTestRunner extends Runner {
 			xlpOptionsList.add(new XlpOption("-Xlp", true));
 
 			/* Test '-Xlp<size>' options */
-			xlpOptionsList.add(new XlpOption("-Xlp4K", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			xlpOptionsList.add(new XlpOption("-Xlp1M", ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			xlpOptionsList.add(new XlpOption("-Xlp2G", 2 * ONE_GB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			xlpOptionsList.add(new XlpOption("-Xlp7M", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
+			//xlpOptionsList.add(new XlpOption("-Xlp4K", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
+			//xlpOptionsList.add(new XlpOption("-Xlp1M", ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
+			//xlpOptionsList.add(new XlpOption("-Xlp2G", 2 * ONE_GB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
+			//xlpOptionsList.add(new XlpOption("-Xlp7M", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
 
 			/* Test '-Xlp:codecache:' options */
 			xlpOptionsList.add(new XlpOption("-Xlp:codecache:pagesize=4K,pageable", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_PAGEABLE, false));
@@ -262,29 +262,29 @@ public class XlpCodeCacheOptionsTestRunner extends Runner {
 			xlpOptionsList.add(new XlpOption("-Xlp:codecache:pagesize=7M,nonpageable", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NONPAGEABLE, false));
 	
 			/* Test '-Xlp' with '-Xlp<size>' option. In such case -Xlp is ignored */
-			xlpOptionsList.add(new XlpOption("-Xlp -Xlp4K", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			xlpOptionsList.add(new XlpOption("-Xlp4K -Xlp", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
+			//xlpOptionsList.add(new XlpOption("-Xlp -Xlp4K", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
+			//xlpOptionsList.add(new XlpOption("-Xlp4K -Xlp", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
 
-			xlpOptionsList.add(new XlpOption("-Xlp -Xlp7M", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			xlpOptionsList.add(new XlpOption("-Xlp7M -Xlp", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
+			//xlpOptionsList.add(new XlpOption("-Xlp -Xlp7M", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
+			//xlpOptionsList.add(new XlpOption("-Xlp7M -Xlp", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
 
 			/* Test '-Xlp' with '-Xlp:codecache:pagesize=<size>' option. In such case '-Xlp' is ignored */
-			xlpOptionsList.add(new XlpOption("-Xlp -Xlp:codecache:pagesize=4K,pageable", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:codecache:pagesize=4K,pageable -Xlp", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
+			//xlpOptionsList.add(new XlpOption("-Xlp -Xlp:codecache:pagesize=4K,pageable", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
+			//xlpOptionsList.add(new XlpOption("-Xlp:codecache:pagesize=4K,pageable -Xlp", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
 
-			xlpOptionsList.add(new XlpOption("-Xlp -Xlp:codecache:pagesize=7M,pageable", 7* ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:codecache:pagesize=7M,pageable -Xlp", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
+			//xlpOptionsList.add(new XlpOption("-Xlp -Xlp:codecache:pagesize=7M,pageable", 7* ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
+			//xlpOptionsList.add(new XlpOption("-Xlp:codecache:pagesize=7M,pageable -Xlp", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
 
 			/* Test '-Xlp<size>' with '-Xlp:codecache=pagesize<size>' option. In such cases rightmost option wins */
-			xlpOptionsList.add(new XlpOption("-Xlp1M -Xlp:codecache:pagesize=2G,pageable", 2 * ONE_GB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:codecache:pagesize=2G,pageable -Xlp1M", 1 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
+			//xlpOptionsList.add(new XlpOption("-Xlp1M -Xlp:codecache:pagesize=2G,pageable", 2 * ONE_GB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
+			//xlpOptionsList.add(new XlpOption("-Xlp:codecache:pagesize=2G,pageable -Xlp1M", 1 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
 
-			xlpOptionsList.add(new XlpOption("-Xlp1M -Xlp:codecache:pagesize=7M,pageable", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:codecache:pagesize=7M,pageable -Xlp2G", 2 * ONE_GB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
+			//xlpOptionsList.add(new XlpOption("-Xlp1M -Xlp:codecache:pagesize=7M,pageable", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
+			//xlpOptionsList.add(new XlpOption("-Xlp:codecache:pagesize=7M,pageable -Xlp2G", 2 * ONE_GB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
 
 			/* Test multiple '-Xlp<size>' options. In such cases rightmost option wins */
-			xlpOptionsList.add(new XlpOption("-Xlp1M -Xlp2G", 2 * ONE_GB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp2G -Xlp1M", 1 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
+			//xlpOptionsList.add(new XlpOption("-Xlp1M -Xlp2G", 2 * ONE_GB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
+			//xlpOptionsList.add(new XlpOption("-Xlp2G -Xlp1M", 1 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
 
 			/* Test multiple -Xlp:codecache: options. In such cases rightmost option wins */
 			xlpOptionsList.add(new XlpOption("-Xlp:codecache:pagesize=1M,pageable -Xlp:codecache:pagesize=2G,nonpageable", 2 * ONE_GB, XlpUtil.XLP_PAGE_TYPE_NONPAGEABLE, false));
@@ -518,20 +518,14 @@ public class XlpCodeCacheOptionsTestRunner extends Runner {
 						if ((optionPageSize != pageSizeInVerbose) || (!optionPageType.equals(pageTypeInVerbose))) {
 							/* Warning message should have been printed */
 							boolean warningMsgFound = false;
-							boolean unsupportedOptionMsgFound = false;
 							for (String line: outputList) {
 								if (Pattern.matches(differentPageSizeWarningMsg, line)) {
 									warningMsgFound = true;
 									System.out.println("INFO: Found warning message for using different page size than specified\n");
 									break;
 								}
-								if (line.indexOf(unsupportedOptionMsg) != -1) {
-									unsupportedOptionMsgFound = true;
-									System.out.println("INFO: Found message for unsupported option\n");
-									break;
-								}
 							}
-							if (!warningMsgFound && !unsupportedOptionMsgFound) {
+							if (!warningMsgFound) {
 								/* Print error message */
 								System.out.println("ERROR: Page size and type in Xlp:codecache option is not same as used by JIT, but the expected warning message is not found");
 								System.out.println("\tPage size and page type in Xlp:codecache option: " + optionPageSize + " " + optionPageType);
