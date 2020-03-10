@@ -1460,7 +1460,8 @@ J9::Options::fePreProcess(void * base)
       UDATA largePageFlags = 0;
       int32_t xlpCodeCacheIndex = FIND_ARG_IN_VMARGS(STARTSWITH_MATCH, "-Xlp:codecache:", NULL);
       int32_t xlpIndex = FIND_ARG_IN_VMARGS(EXACT_MEMORY_MATCH, "-Xlp", NULL);
-      int32_t largePageArgIndex = vm->largePageArgIndex;
+      J9LargePageCompatibilityOptions *largePageOptionConfig = &(vm->largePageOption);
+      int32_t largePageArgIndex = largePageOptionConfig->optionIndex;
 
       // Parse -Xlp:codecache:pagesize=<size> as the right most option
       if ((xlpCodeCacheIndex > xlpIndex) && (xlpCodeCacheIndex > largePageArgIndex))
@@ -1693,9 +1694,9 @@ J9::Options::fePreProcess(void * base)
          GET_MEMORY_VALUE(xlpIndex, lpOption, requestedLargeCodePageSize);
          }
       // Parse -XX:LargePageSizeInBytes=<size>
-      else if ((largePageArgIndex >= 0) && (vm->largePageSizeRequested != -1))
+      else if ((largePageArgIndex >= 0) && (largePageOptionConfig->pageSizeRequested != -1))
          {
-         requestedLargeCodePageSize = vm->largePageSizeRequested;
+         requestedLargeCodePageSize = largePageOptionConfig->pageSizeRequested;
          }
       
       if (requestedLargeCodePageSize != 0)

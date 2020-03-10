@@ -1875,16 +1875,16 @@ IDATA VMInitStages(J9JavaVM *vm, IDATA stage, void* reserved) {
 			{
 				IDATA argIndexUseLargePages = FIND_AND_CONSUME_ARG(EXACT_MATCH, MAPOPT_XXUSELARGEPAGES, NULL);
 				IDATA argIndexLargePageSizeInBytes = FIND_AND_CONSUME_ARG(STARTSWITH_MATCH, MAPOPT_XXLARGEPAGESIZEINBYTES_EQUALS, NULL);
-				
+				J9LargePageCompatibilityOptions *optionConfig = &(vm->largePageOption);
 				if (argIndexUseLargePages > argIndexLargePageSizeInBytes) {
-					vm->largePageArgIndex = argIndexUseLargePages;
-					vm->largePageSizeRequested = -1;
+					optionConfig->optionIndex = argIndexUseLargePages;
+					optionConfig->pageSizeRequested = -1;
 				}
 				else if (-1 != argIndexLargePageSizeInBytes) {
 					UDATA requestedLargeCodePageSize = 0;
 					char *lpOption = MAPOPT_XXLARGEPAGESIZEINBYTES_EQUALS;
 
-					vm->largePageArgIndex = argIndexLargePageSizeInBytes;
+					optionConfig->optionIndex = argIndexLargePageSizeInBytes;
 					
 					/* Extract size argument */
 					parseError = GET_MEMORY_VALUE(argIndexLargePageSizeInBytes, lpOption, requestedLargeCodePageSize);
@@ -1894,10 +1894,10 @@ IDATA VMInitStages(J9JavaVM *vm, IDATA stage, void* reserved) {
 						goto _memParseError;
 					}
 					
-					vm->largePageSizeRequested = requestedLargeCodePageSize;
+					optionConfig->pageSizeRequested = requestedLargeCodePageSize;
 				}
 				else {
-					vm->largePageArgIndex = -1;
+					optionConfig->optionIndex = -1;
 				}
 			}
 #if defined(AIXPPC)
