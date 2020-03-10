@@ -1871,6 +1871,7 @@ IDATA VMInitStages(J9JavaVM *vm, IDATA stage, void* reserved) {
 				}
 			}
 #endif /* !defined(WIN32) && !defined(J9ZTPF) */
+
 			/* Parse options related to Large Pages */
 			{
 				IDATA argIndexUseLargePages = FIND_AND_CONSUME_ARG(EXACT_MATCH, MAPOPT_XXUSELARGEPAGES, NULL);
