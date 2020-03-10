@@ -654,7 +654,9 @@ gcProcessXXLargePageObjectHeapArguments(J9JavaVM *vm)
 {
 	PORT_ACCESS_FROM_JAVAVM(vm);
 	MM_GCExtensions *extensions = MM_GCExtensions::getExtensions(vm);
-	if (-1 == vm->largePageSizeRequested) {
+	J9LargePageCompatibilityOptions *optionConfig = &(vm->largePageOption);
+
+	if (-1 == optionConfig->pageSizeRequested) {
 
 		UDATA defaultLargePageSize = 0;
 #if	defined(J9ZOS390)
@@ -673,7 +675,7 @@ gcProcessXXLargePageObjectHeapArguments(J9JavaVM *vm)
 			return false;
 		}
 	} else {
-		UDATA largePageSizeRequested = vm->largePageSizeRequested;
+		UDATA largePageSizeRequested = optionConfig->pageSizeRequested;
 #if defined(J9ZOS390)
 		UDATA largePageFlagRequested = J9PORT_VMEM_PAGE_FLAG_PAGEABLE_PREFERABLE;
 #else /* J9ZOS390 */
@@ -927,6 +929,7 @@ gcParseSovereignArguments(J9JavaVM *vm)
 #endif /* J9VM_GC_LARGE_OBJECT_AREA */
 	const char *optionFound = NULL;
 	IDATA index = -1;
+	J9LargePageCompatibilityOptions *largePageOptionConfig = &(vm->largePageOption);
 	PORT_ACCESS_FROM_JAVAVM(vm);
 
 	IDATA xlpOptionIndex = gcParseXlpOption(vm);
@@ -935,7 +938,7 @@ gcParseSovereignArguments(J9JavaVM *vm)
 	}
 
 	/* Setup to handle additional objectheap arguments */
-	if ((-1 != vm->largePageArgIndex) && (vm->largePageArgIndex > xlpOptionIndex) && (!gcProcessXXLargePageObjectHeapArguments(vm))) {
+	if ((-1 != largePageOptionConfig->optionIndex) && (largePageOptionConfig->optionIndex > xlpOptionIndex) && (!gcProcessXXLargePageObjectHeapArguments(vm))) {
 		goto _error;
 	}
 	
