@@ -1874,6 +1874,53 @@ IDATA VMInitStages(J9JavaVM *vm, IDATA stage, void* reserved) {
 
 			/* Parse options related to Large Pages */
 			{
+				IDATA argIndexUseLargePages = FIND_ARG_IN_VMARGS(EXACT_MATCH, MAPOPT_XXUSELARGEPAGES, NULL);
+				IDATA argIndexDontUseLargePages = FIND_ARG_IN_VMARGS(EXACT_MATCH, MAPOPT_XXDISABLEUSELARGEPAGES, NULL);
+				IDATA argIndexLargePageSizeInBytes = FIND_ARG_IN_VMARGS(EXACT_MATCH, MAPOPT_XXLARGEPAGESIZEINBYTES_EQUALS, NULL);
+				J9VMInitArgs *vmArgs = vm->vmArgsArray;
+
+				/* Keep right most option out of -XX:+UseLargePages, -XX:-UseLargePages, and -XX:LargePagesSizeInBytes=<size> */
+
+				char * maxOption = NULL;
+				IDATA maxIndex = argIndexUseLargePages;
+
+				if (-1 == maxIndex || maxIndex < argIndexDontUseLargePages) {
+					FIND_AND_CONSUME_ARG(EXACT_MATCH, maxOption, NULL);
+					maxIndex = argIndexDontUseLargePages;
+					maxOption = MAPOPT_XXDISABLEUSELARGEPAGES;
+				} else {
+					FIND_AND_CONSUME_ARG(EXACT_MATCH, MAPOPT_XXDISABLEUSELARGEPAGES, NULL);
+				}
+
+				if (-1 == maxIndex || maxIndex < argIndexLargePageSizeInBytes) {
+					FIND_AND_CONSUME_ARG(EXACT_MATCH, maxOption, NULL);
+					maxIndex = argIndexLargePageSizeInBytes;
+					maxOption = MAPOPT_XXLARGEPAGESIZEINBYTES_EQUALS;
+				} else {
+					FIND_AND_CONSUME_ARG(EXACT_MATCH, MAPOPT_XXLARGEPAGESIZEINBYTES_EQUALS, NULL);
+				}
+
+				/* Consume Xlp options if -XX Options above are placed at the most right position relatively */
+				IDATA xlpIndex = FIND_ARG_IN_VMARGS_FORWARD(STARTSWITH_MATCH, "-Xlp", NULL);
+				while (xlpIndex >= 0 && xlpIndex < maxIndex) {
+					CONSUME_ARGS(vmArgs, xlpIndex);
+					FIND_NEXT_ARG_IN_VMARGS_FORWARD(STARTSWITH_MATCH, "-Xlp", NULL, xlpIndex);
+				}
+				/* Consume -XX Option if -Xlp is the most right position relatively */
+				if (xlpIndex > maxIndex) {
+					FIND_AND_CONSUME_ARG(EXACT_MATCH, maxOption, NULL);
+				}
+
+				/* 
+				 *	Note: Since these -XX options impact both the codecache and objectheap then -Xlp options can be ignored
+				 *	if they precede these options. 
+				 *	The opposite is not true, since -Xlp, -Xlp:codecache, and -Xlp:objectheap selectively impact either 
+				 *	the objectheap, or codecache only. It is assumed that the respective components handle these partial options.
+				 */
+			}
+
+			/* Parse options related to Large Pages */
+			{
 				IDATA argIndexUseLargePages = FIND_AND_CONSUME_ARG(EXACT_MATCH, MAPOPT_XXUSELARGEPAGES, NULL);
 				IDATA argIndexLargePageSizeInBytes = FIND_AND_CONSUME_ARG(STARTSWITH_MATCH, MAPOPT_XXLARGEPAGESIZEINBYTES_EQUALS, NULL);
 				J9LargePageCompatibilityOptions *optionConfig = &(vm->largePageOption);
