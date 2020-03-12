@@ -1874,49 +1874,67 @@ IDATA VMInitStages(J9JavaVM *vm, IDATA stage, void* reserved) {
 
 			/* Parse options related to Large Pages */
 			{
-				IDATA argIndexUseLargePages = FIND_ARG_IN_VMARGS(EXACT_MATCH, MAPOPT_XXUSELARGEPAGES, NULL);
-				IDATA argIndexDontUseLargePages = FIND_ARG_IN_VMARGS(EXACT_MATCH, MAPOPT_XXDISABLEUSELARGEPAGES, NULL);
-				IDATA argIndexLargePageSizeInBytes = FIND_ARG_IN_VMARGS(EXACT_MATCH, MAPOPT_XXLARGEPAGESIZEINBYTES_EQUALS, NULL);
-				J9VMInitArgs *vmArgs = vm->vmArgsArray;
+				IDATA codecacheIndex = -1;
+				IDATA objectheapIndex = -1;
+				IDATA index = j9vm_args->nOptions;
+				char *option = NULL;
 
-				/* Keep right most option out of -XX:+UseLargePages, -XX:-UseLargePages, and -XX:LargePagesSizeInBytes=<size> */
+				while (index != -1) {
 
-				char * maxOption = NULL;
-				IDATA maxIndex = argIndexUseLargePages;
+					IDATA argIndexUseLargePages = FIND_NEXT_ARG_IN_VMARGS(EXACT_MATCH, MAPOPT_XXUSELARGEPAGES, NULL, index);
+					IDATA argIndexDontUseLargePages = FIND_NEXT_ARG_IN_VMARGS(EXACT_MATCH, MAPOPT_XXDISABLEUSELARGEPAGES, NULL, index);
+					IDATA argIndexLargePageSizeInBytes = FIND_NEXT_ARG_IN_VMARGS(EXACT_MATCH, MAPOPT_XXLARGEPAGESIZEINBYTES_EQUALS, NULL, index);
+					IDATA argIndexXlp = FIND_NEXT_ARG_IN_VMARGS(STARTSWITH_MATCH, "-Xlp", NULL, index);
+					BOOLEAN isConsumable = FALSE;
 
-				if (-1 == maxIndex || maxIndex < argIndexDontUseLargePages) {
-					FIND_AND_CONSUME_ARG(EXACT_MATCH, maxOption, NULL);
-					maxIndex = argIndexDontUseLargePages;
-					maxOption = MAPOPT_XXDISABLEUSELARGEPAGES;
-				} else {
-					FIND_AND_CONSUME_ARG(EXACT_MATCH, MAPOPT_XXDISABLEUSELARGEPAGES, NULL);
+					/* Find Maximum index */
+					index = MAX(argIndexUseLargePages, argIndexDontUseLargePages);
+					index = MAX(index, argIndexLargePageSizeInBytes);
+					index = MAX(index, argIndexXlp);
+
+					/* No large page option found. Exit */
+					if (-1 == index) {
+						break;
+					}
+
+					option = getOptionString(j9vm_args, index);
+
+					/* -XX:[+/-]UseLargePages & -XX:LargePageSizeInBytes=<size> & Xlp<size> */
+					if (((0 == strcmp(option, MAPOPT_XXUSELARGEPAGES)) || (0 == strcmp(option, MAPOPT_XXDISABLEUSELARGEPAGES))) ||
+						(NULL != strstr(option, MAPOPT_XXLARGEPAGESIZEINBYTES_EQUALS)) ||
+						((NULL != strstr(option, "-Xlp")) && (0 > strmcp(option, "-Xlp")))) {
+						if ((-1 == codecacheIndex) || (-1 == objectheapIndex)) {
+							codecacheIndex = codecacheIndex == -1? index: codecacheIndex;
+							objectheapIndex = objectheapIndex == -1? index: objectheapIndex;
+						}
+						else {
+							isConsumable = TRUE;
+						}
+					}
+					/* -Xlp:codecache */
+					else if (NULL != strstr(option, "-Xlp:codecache")) {
+						if (-1 == codecacheIndex) {
+							codecacheIndex = index;
+						}
+						else {
+							isConsumable = TRUE;
+						}
+					}
+					/* -Xlp:objectheap & -Xlp */
+					else if (NULL != strstr(option, "Xlp:objectheap") || (0 == strmcp(option, "-Xlp"))) {
+						if (-1 == objectheap) {
+							objectheapIndex = index;
+						}
+						else {
+							isConsumable = TRUE;
+						}
+					}
+
+					/* Consume argument */
+					if (isConsumable) {
+						CONSUME_ARG(vm->vmArgsArray, index);
+					}
 				}
-
-				if (-1 == maxIndex || maxIndex < argIndexLargePageSizeInBytes) {
-					FIND_AND_CONSUME_ARG(EXACT_MATCH, maxOption, NULL);
-					maxIndex = argIndexLargePageSizeInBytes;
-					maxOption = MAPOPT_XXLARGEPAGESIZEINBYTES_EQUALS;
-				} else {
-					FIND_AND_CONSUME_ARG(EXACT_MATCH, MAPOPT_XXLARGEPAGESIZEINBYTES_EQUALS, NULL);
-				}
-
-				/* Consume Xlp options if -XX Options above are placed at the most right position relatively */
-				IDATA xlpIndex = FIND_ARG_IN_VMARGS_FORWARD(STARTSWITH_MATCH, "-Xlp", NULL);
-				while (xlpIndex >= 0 && xlpIndex < maxIndex) {
-					CONSUME_ARGS(vmArgs, xlpIndex);
-					FIND_NEXT_ARG_IN_VMARGS_FORWARD(STARTSWITH_MATCH, "-Xlp", NULL, xlpIndex);
-				}
-				/* Consume -XX Option if -Xlp is the most right position relatively */
-				if (xlpIndex > maxIndex) {
-					FIND_AND_CONSUME_ARG(EXACT_MATCH, maxOption, NULL);
-				}
-
-				/* 
-				 *	Note: Since these -XX options impact both the codecache and objectheap then -Xlp options can be ignored
-				 *	if they precede these options. 
-				 *	The opposite is not true, since -Xlp, -Xlp:codecache, and -Xlp:objectheap selectively impact either 
-				 *	the objectheap, or codecache only. It is assumed that the respective components handle these partial options.
-				 */
 			}
 
 			/* Parse options related to Large Pages */
