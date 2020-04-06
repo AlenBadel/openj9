@@ -1874,6 +1874,8 @@ static void jitHookClassesUnload(J9HookInterface * * hookInterface, UDATA eventN
       J9ClassWalkState classWalkState;
       J9Class * j9clazz;
       TR_OpaqueClassBlock *clazz;
+      // AB: Create a dummy classLoader and change j9class->classLoader to point to this fake one
+      J9ClassLoader dummyClassLoader;
       j9clazz = vmThread->javaVM->internalVMFunctions->allClassesStartDo(&classWalkState, vmThread->javaVM, NULL);
       while (j9clazz)
          {
@@ -1884,12 +1886,19 @@ static void jitHookClassesUnload(J9HookInterface * * hookInterface, UDATA eventN
             {
             clazz = ((TR_J9VMBase *)fe)->convertClassPtrToClassOffset(j9clazz);
             table->classGotUnloadedPost(fe,clazz); // side-effect: builds the array of visited superclasses
+            j9clazz->classLoader = &dummyClassLoader;
             }
          j9clazz = vmThread->javaVM->internalVMFunctions->allClassesNextDo(&classWalkState);
          }
 
-      vmThread->javaVM->internalVMFunctions->allClassesEndDo(&classWalkState);
+         vmThread->javaVM->internalVMFunctions->allClassesEndDo(&classWalkState);
+#if defined(J9VM_JIT_DYNAMIC_LOOP_TRANSFER)
+      compInfo->cleanDLTRecordOnUnload(&dummyClassLoader);
+      if (compInfo->getDLT_HT())
+         compInfo->getDLT_HT()->onClassUnloading(&dummyClassLoader);
+#endif
 
+      vmThread->javaVM->internalVMFunctions->allClassesEndDo(&classWalkState);
 
       TR_OpaqueClassBlock **visitedSuperClasses = persistentInfo->getVisitedSuperClasses();
       if (visitedSuperClasses && !persistentInfo->tooManySuperClasses())
@@ -2037,6 +2046,7 @@ static void jitHookClassUnload(J9HookInterface * * hookInterface, UDATA eventNum
       TR_ASSERT(!removeClasses.acquiredVMAccess(), "jitHookClassUnload should already have VM access");
       TR_LinkHead0<TR_ClassHolder> *classList = compInfo->getListOfClassesToCompile();
 
+      // Remove classes from class list
       TR_ClassHolder *prevClass = NULL;
       TR_ClassHolder *crtClass  = classList->getFirst();
       while (crtClass)
@@ -2050,6 +2060,10 @@ static void jitHookClassUnload(J9HookInterface * * hookInterface, UDATA eventNum
          crtClass = crtClass->getNext();
          }
       }
+
+      // Link j9class to dummy classloader
+      J9ClassLoader dummyClassLoader;
+      j9clazz->classLoader = &dummyClassLoader;
 
    bool p = TR::Options::getVerboseOption(TR_VerboseHookDetailsClassUnloading);
    if (p)
@@ -2072,6 +2086,12 @@ static void jitHookClassUnload(J9HookInterface * * hookInterface, UDATA eventNum
    uint32_t numMethods = fej9->getNumMethods((TR_OpaqueClassBlock*)j9clazz);
    uintptr_t methodsStartAddr = 0;
    uintptr_t methodsEndAddr = 0;
+
+#if defined(J9VM_JIT_DYNAMIC_LOOP_TRANSFER)
+   compInfo->cleanDLTRecordOnUnload(&dummyClassLoader);
+   if (compInfo->getDLT_HT())
+      compInfo->getDLT_HT()->onClassUnloading(&dummyClassLoader);
+#endif
 
    if ( numMethods >0 )
       {
