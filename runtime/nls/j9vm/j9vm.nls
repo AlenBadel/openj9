@@ -1970,3 +1970,9 @@ J9NLS_VM_PACKAGE_IS_NULL.system_action=The JVM will throw a java/lang/NullPointe
 J9NLS_VM_PACKAGE_IS_NULL.user_response=Don't pass a NULL package String.
 # END NON-TRANSLATABLE
 
+J9NLS_VM_XLP_DEPRECATED=Since Java 9 -Xlp, and -Xlp:<size> were deprecated for removal and may not be accepted options in the future.
+# START NON-TRANSLATABLE
+J9NLS_VM_XLP_DEPRECATED.explanation=Since Java 9 -Xlp, and -Xlp:<size> were deprecated for removal and may not be accepted options in the future.
+J9NLS_VM_XLP_DEPRECATED.system_action=The JVM will show a warning and continue to recognize the options.
+J9NLS_VM_XLP_DEPRECATED.user_response=Consider not using these options as they will likely be removed in a future release. Consider replacing with respective -Xlp:codecache, and -Xlp:objectheap options.
+# END NON-TRANSLATABLE
