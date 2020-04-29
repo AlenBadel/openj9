@@ -1875,7 +1875,7 @@ static void jitHookClassesUnload(J9HookInterface * * hookInterface, UDATA eventN
       J9Class * j9clazz;
       TR_OpaqueClassBlock *clazz;
       // AB: Create a dummy classLoader and change j9class->classLoader to point to this fake one
-      J9ClassLoader dummyClassLoader;
+      //J9ClassLoader dummyClassLoader;
       j9clazz = vmThread->javaVM->internalVMFunctions->allClassesStartDo(&classWalkState, vmThread->javaVM, NULL);
       while (j9clazz)
          {
@@ -1886,18 +1886,19 @@ static void jitHookClassesUnload(J9HookInterface * * hookInterface, UDATA eventN
             {
             clazz = ((TR_J9VMBase *)fe)->convertClassPtrToClassOffset(j9clazz);
             table->classGotUnloadedPost(fe,clazz); // side-effect: builds the array of visited superclasses
-            j9clazz->classLoader = &dummyClassLoader;
+            //j9clazz->classLoader = &dummyClassLoader;
             }
          j9clazz = vmThread->javaVM->internalVMFunctions->allClassesNextDo(&classWalkState);
          }
 
          vmThread->javaVM->internalVMFunctions->allClassesEndDo(&classWalkState);
+#if 0
 #if defined(J9VM_JIT_DYNAMIC_LOOP_TRANSFER)
       compInfo->cleanDLTRecordOnUnload(&dummyClassLoader);
       if (compInfo->getDLT_HT())
          compInfo->getDLT_HT()->onClassUnloading(&dummyClassLoader);
 #endif
-
+#endif
       vmThread->javaVM->internalVMFunctions->allClassesEndDo(&classWalkState);
 
       TR_OpaqueClassBlock **visitedSuperClasses = persistentInfo->getVisitedSuperClasses();
@@ -2061,10 +2062,6 @@ static void jitHookClassUnload(J9HookInterface * * hookInterface, UDATA eventNum
          }
       }
 
-      // Link j9class to dummy classloader
-      J9ClassLoader dummyClassLoader;
-      j9clazz->classLoader = &dummyClassLoader;
-
    bool p = TR::Options::getVerboseOption(TR_VerboseHookDetailsClassUnloading);
    if (p)
       {
@@ -2136,6 +2133,13 @@ static void jitHookClassUnload(J9HookInterface * * hookInterface, UDATA eventNum
    if (compInfo->getPersistentInfo()->getRemoteCompilationMode() == JITServer::CLIENT)
       compInfo->getUnloadedClassesTempList()->push_back(clazz);
 #endif
+
+#if defined(J9VM_JIT_DYNAMIC_LOOP_TRANSFER)
+   // Link j9class to dummy classloader
+   J9ClassLoader dummyClassLoader;
+   j9clazz->classLoader = &dummyClassLoader;
+#endif
+
    }
 #endif /* defined (J9VM_GC_DYNAMIC_CLASS_UNLOADING)*/
 
