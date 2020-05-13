@@ -2993,15 +2993,17 @@ void TR::CompilationInfo::insertDLTRecord(J9Method *method, int32_t bcIndex, voi
    }
    }
 
-void TR::CompilationInfo::cleanDLTRecordOnUnload(J9ClassLoader *classloader)
+void TR::CompilationInfo::cleanDLTRecordOnUnload()
    {
    for (int32_t i=0; i<DLT_HASHSIZE; i++)
       {
       struct DLT_record *prev=NULL, *curr=_dltHash[i], *next;
       while (curr != NULL)
          {
+         J9Class *clazz = J9_CLASS_FROM_METHOD(curr->_method);
          next = curr->_next;
-         if (J9_CLASS_FROM_METHOD(curr->_method)->classLoader == classloader)
+         if ( J9_ARE_ALL_BITS_SET(clazz->classLoader->gcFlags, 0x2)
+            || (J9CLASS_FLAGS(clazz) & J9AccClassDying) )
             {
             if (prev == NULL)
                _dltHash[i] = next;
@@ -12654,10 +12656,9 @@ J9Method_HT::HT_Entry * J9Method_HT::find(J9Method *j9method) const
    return entry;
    }
 
-
 // onClassUnloading is executed when all threads are stopped
 // so there are no synchronization issues
-void J9Method_HT::onClassUnloading(J9ClassLoader *j9classLoader)
+void J9Method_HT::onClassUnloading()
    {
    // Scan the entire DLT_HT and delete entries matching the given classloader
    // Also free invalid entries that have j9method==NULL
@@ -12667,8 +12668,9 @@ void J9Method_HT::onClassUnloading(J9ClassLoader *j9classLoader)
       HT_Entry *prev = NULL;
       while (entry)
          {
-         if (NULL == entry->_j9method
-            || J9_CLASS_FROM_METHOD(entry->_j9method)->classLoader == j9classLoader)
+         J9Class *clazz = J9_CLASS_FROM_METHOD(entry->_j9method);
+         if ( J9_ARE_ALL_BITS_SET(clazz->classLoader->gcFlags, 0x2)
+            || (J9CLASS_FLAGS(clazz) & J9AccClassDying) )
             {
             HT_Entry *removed = NULL;
             if (prev)
@@ -12714,10 +12716,6 @@ bool J9Method_HT::addNewEntry(J9Method *j9method, uint64_t timestamp)
          (unsigned)getPersistentInfo()->getElapsedTime(), j9method, alreadyCompiled, added, _numEntries);
    return added;
    }
-
-
-
-
 
 bool DLTTracking::shouldIssueDLTCompilation(J9Method *j9method, int32_t numHitsInDLTBuffer)
    {
