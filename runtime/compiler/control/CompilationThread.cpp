@@ -41,6 +41,7 @@
 #include <time.h>
 #include "j9.h"
 #include "j9cfg.h"
+#include "j9modron.h"
 #include "j9protos.h"
 #include "vmaccess.h"
 #include "objhelp.h"
@@ -3002,7 +3003,7 @@ void TR::CompilationInfo::cleanDLTRecordOnUnload()
          {
          J9Class *clazz = J9_CLASS_FROM_METHOD(curr->_method);
          next = curr->_next;
-         if ( J9_ARE_ALL_BITS_SET(clazz->classLoader->gcFlags, 0x2)
+         if ( J9_ARE_ALL_BITS_SET(clazz->classLoader->gcFlags, J9_GC_CLASS_LOADER_DEAD)
             || (J9CLASS_FLAGS(clazz) & J9AccClassDying) )
             {
             if (prev == NULL)
@@ -12669,7 +12670,7 @@ void J9Method_HT::onClassUnloading()
       while (entry)
          {
          J9Class *clazz = J9_CLASS_FROM_METHOD(entry->_j9method);
-         if ( J9_ARE_ALL_BITS_SET(clazz->classLoader->gcFlags, 0x2)
+         if ( J9_ARE_ALL_BITS_SET(clazz->classLoader->gcFlags, J9_GC_CLASS_LOADER_DEAD)
             || (J9CLASS_FLAGS(clazz) & J9AccClassDying) )
             {
             HT_Entry *removed = NULL;
