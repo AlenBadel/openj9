@@ -1662,16 +1662,70 @@ IDATA VMInitStages(J9JavaVM *vm, IDATA stage, void* reserved) {
 				exit(0);
 			}
 
-			/* -Xlp commandline options parsing */
+			/* Paging CommandLine Option Parsing */
 			{
-				IDATA xlpExactIndex, xlpSizeIndex;
-				xlpSizeIndex  = FIND_ARG_IN_VMARGS(EXACT_MEMORY_MATCH, VMOPT_XLP, NULL);
-				xlpExactIndex = FIND_ARG_IN_VMARGS(EXACT_MATCH, VMOPT_XLP, NULL);
+				/* TODO: This can be done more efficiently.
+				   We can iterate backwards through vmargs, and extract options that impact the codecache and objectheap.
+				   Ensure to consume options that are ignored, or even to consume all paging options. They shouldn't be parsed further.
+				 */
+				IDATA xlpSizeIndex  = FIND_ARG_IN_VMARGS(EXACT_MEMORY_MATCH, VMOPT_XLP, NULL);
+				IDATA xlpExactIndex = FIND_ARG_IN_VMARGS(EXACT_MATCH, VMOPT_XLP, NULL);
+				IDATA xlpCodeCachePageSize = FIND_ARG_IN_VMARGS(STARTSWITH_MATCH, VMOPT_XLP_CODECACHE_PAGESIZE_EQUALS, NULL);
+				IDATA xlpObjectheapPageSize = FIND_ARG_IN_VMARGS(STARTSWITH_MATCH, VMOPT_XLP_OBJECTHEAP_PAGESIZE_EQUALS, NULL);
 
 				/* -Xlp and -Xlp<size> options are deprecated in JDK11+ */
 				if (J2SE_VERSION(vm) >= J2SE_V11 && (xlpSizeIndex != -1 || xlpExactIndex != -1)) {
 					j9nls_printf(PORTLIB, J9NLS_WARNING, J9NLS_VM_XLP_DEPRECATED);
 				}
+
+				J9LargePageOptions *optionConfig = &(vm->largePageOptionsConfig);
+
+				/* Find Impacting Option for both CodeCache, and ObjectHeap */
+
+				/* CodeCache: Xlp<Size>, and Xlp:codecache:pagesize=<size>. Right most always impacts */
+				IDATA codecacheIndex = OMR_MAX(xlpSizeIndex, xlpCodeCachePageSize);
+				if (codecacheIndex == -1) {
+					optionConfig->isCodeCachePageRequested = FALSE;
+				}
+				else {
+					optionConfig->isCodeCachePageRequested = TRUE;
+					if (codecacheIndex == xlpSizeIndex) {
+						char *lpOption = VMOPT_XLP;
+         				GET_MEMORY_VALUE(codecacheIndex, lpOption, optionConfig->codecachePageSizeRequested);
+					}
+					else if (codecacheIndex == xlpCodeCachePageSize) {
+						char *lpOption = VMOPT_XLP_CODECACHE_PAGESIZE_EQUALS;
+						GET_MEMORY_VALUE(codecacheIndex, lpOption, optionConfig->codecachePageSizeRequested);
+					}
+				}
+
+				/* ObjectHeap: Xlp, Xlp<Size>, Xlp:objectheap:pageszie=<size> */
+				IDATA objectheapIndex = OMR_MAX(xlpSizeIndex, xlpObjectheapPageSize);
+				/* Xlp is always ignored if any of the other options are passed in. Order is not respected. */
+				if (objectheapIndex == -1)
+					objectheapIndex = xlpExactIndex;
+
+				if (objectheapIndex == -1) {
+					optionConfig->isObjectHeapPageRequested = FALSE;
+				}
+				else {
+					optionConfig->isObjectHeapPageRequested = TRUE;
+					if (objectheapIndex == xlpSizeIndex) {
+						char *lpOption = VMOPT_XLP;
+						GET_MEMORY_VALUE(objectheapIndex, lpOption, optionConfig->objectheapPageSizeRequested);
+					}
+					else if (objectheapIndex == xlpObjectheapPageSize) {
+						/* TODO: Parse Sub-options. Including Z/OS Pageable. */
+						char *lpOption = VMOPT_XLP_OBJECTHEAP_PAGESIZE_EQUALS;
+						GET_MEMORY_VALUE(objectheapIndex, lpOption, optionConfig->objectheapPageSizeRequested);
+					}
+				}
+
+				/* TODO: Remove DEBUG */
+				J9VMInitArgs *j9vm_args = vm->vmArgsArray;
+				printf("JVMINIT: isCodeCachePageRequested:%d isObjectHeapPageRequested:%d\n codeCacheOption:%s objectheapOption:%s\n codecachesize:%ld objectheapsize:%ld\n",\
+						optionConfig->isCodeCachePageRequested, optionConfig->isObjectHeapPageRequested, getOptionString(j9vm_args, codecacheIndex), getOptionString(j9vm_args, objectheapIndex),\
+						optionConfig->codecachePageSizeRequested, optionConfig->objectheapPageSizeRequested);
 			}
 
 #if defined(J9VM_OPT_SHARED_CLASSES)

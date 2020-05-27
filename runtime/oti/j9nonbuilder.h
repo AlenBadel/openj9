@@ -4816,6 +4816,17 @@ typedef struct J9VMRuntimeStateListener {
 	UDATA idleTuningFlags;
 } J9VMRuntimeStateListener;
 
+/* J9LargePageOptions contains the parsed large page option data to be used by GC/JIT. */
+typedef struct J9LargePageOptions {
+	BOOLEAN isCodeCachePageRequested;
+	UDATA codecachePageSizeRequested;
+	BOOLEAN isObjectHeapPageRequested;
+	UDATA objectheapPageSizeRequested;
+#if defined(J9ZOS390)
+	BOOLEAN objectheapIsPageable; // (Z/OS Only)
+#endif /* J9ZOS390 */
+} J9LargePageOptions;
+
 /* Values for J9VMRuntimeStateListener.vmRuntimeState
  * These values are reflected in the Java class library code(RuntimeMXBean)
  */
@@ -5210,6 +5221,8 @@ typedef struct J9JavaVM {
 	U_32 minimumReservedRatio;
 	U_32 cancelAbsoluteThreshold;
 	U_32 minimumLearningRatio;
+	/* Stores Result of Parsing Large Page Options to be used in GC/JIt */
+	J9LargePageOptions largePageOptionsConfig;
 } J9JavaVM;
 
 #define J9VM_PHASE_NOT_STARTUP  2
