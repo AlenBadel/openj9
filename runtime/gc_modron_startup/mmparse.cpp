@@ -142,17 +142,6 @@ struct XlpError {
 };
 
 typedef enum {
-	XLP_NO_ERROR = 0,
-	XLP_OPTION_NOT_SUPPORTED,
-	XLP_MEM_NAN,
-	XLP_MEM_OVERFLOW,
-	XLP_PAGE_SIZE_INCORRECT,
-	XLP_INCOMPLETE_OPTION,
-	XLP_LARGE_PAGE_NOT_SUPPORTED,
-	XLP_PARAMETER_NOT_RECOGNIZED
-} XlpErrorState;
-
-typedef enum {
 	PARSING_FIRST_OPTION = 1,
 	PARSING_OPTION,
 	PARSING_COMMA,
@@ -352,7 +341,7 @@ option_set_group(J9JavaVM *vm, const char **optionGroup, IDATA *optionGroupIndex
 /**
  * Parse sub options for -Xlp:xxxxx:
  */
-static XlpErrorState
+vmstatic XlpErrorState
 xlpSubOptionsParser(J9JavaVM *vm, IDATA xlpIndex, XlpError *xlpError, UDATA *requestedPageSize, UDATA *requestedPageFlags, bool *strict, bool *warn)
 {
 	/* -Xlp:objectheap: found and it is most right option, so it is not overwritten by -Xlp<size> */
@@ -576,143 +565,90 @@ gcParseXlpOption(J9JavaVM *vm)
 			                0,		/* xlpOptionErrorStringSize */
 			                NULL,	/* xlpMissingOptionString */
 			                false};	/* extraCommaWarning */
-	IDATA xlpIndex = -1;
-	IDATA xlpMemIndex = -1;
-	IDATA xlpObjectHeapIndex = -1;
 	IDATA xlpGCIndex = -1;
 	UDATA requestedPageSize = 0;
 	UDATA requestedPageFlags = J9PORT_VMEM_PAGE_FLAG_NOT_USED;
+	J9LargePageOptions *optionConfig = &(vm->largePageOptionsConfig);
 	PORT_ACCESS_FROM_JAVAVM(vm);
 
-	/* Parse -Xlp option. 
-	 * -Xlp option enables large pages with the default large page size, but will not
-	 * override any -Xlp<size> or -Xlp:objectheap:pagesize=<size> option.
-	 */
-	xlpIndex = option_set(vm, "-Xlp", EXACT_MATCH);
-	if (-1 != xlpIndex) {
-		UDATA defaultLargePageSize = 0;
-		UDATA defaultLargePageFlags = J9PORT_VMEM_PAGE_FLAG_NOT_USED;
-		j9vmem_default_large_page_size_ex(0, &defaultLargePageSize, &defaultLargePageFlags);
-		if (0 != defaultLargePageSize) {
-			extensions->requestedPageSize = defaultLargePageSize;
-			extensions->requestedPageFlags = defaultLargePageFlags;
-		} else {
-			xlpErrorState = XLP_OPTION_NOT_SUPPORTED;
-			xlpError.xlpOptionErrorString = "-Xlp";
-			/* Cannot report error message here,
-			 * as we may find a valid "-Xlp:objectheap" that overwrites this option
-			 */
+	if (optionConfig->isObjectHeapPageRequested) {
+
+		/* Configure -Xlp */
+		if (optionConfig->objectheapPageSizeRequested == 0) {
+			UDATA defaultLargePageSize = 0;
+			UDATA defaultLargePageFlags = J9PORT_VMEM_PAGE_FLAG_NOT_USED;
+			j9vmem_default_large_page_size_ex(0, &defaultLargePageSize, &defaultLargePageFlags);
+			if (0 != defaultLargePageSize) {
+				extensions->requestedPageSize = defaultLargePageSize;
+				extensions->requestedPageFlags = defaultLargePageFlags;
+			} else {
+				xlpErrorState = XLP_OPTION_NOT_SUPPORTED;
+				xlpError.xlpOptionErrorString = "-Xlp";
+			}
 		}
-	}
-
-	/* Parse -Xlp<size> option. It overrides -Xlp option. */
-	xlpMemIndex = FIND_AND_CONSUME_ARG(EXACT_MEMORY_MATCH, "-Xlp", NULL);
-	if (-1 != xlpMemIndex) {
-		/* Reset error state from parsing of previous -Xlp option */
-		xlpErrorState = XLP_NO_ERROR;
-
-		/* No need to set requestedPageFlags explicitly. We use the default value J9PORT_VMEM_PAGE_FLAG_NOT_USED */
-
-		/* If the machine does not support large pages, we may fail.
-		 * Page flags for default large page size is not required, just pass NULL.
-		 */
-		j9vmem_default_large_page_size_ex(0, &requestedPageSize, NULL);
-		if (0 != requestedPageSize) {
-			IDATA result = option_set_to_opt(vm, "-Xlp", &xlpMemIndex, EXACT_MEMORY_MATCH, &requestedPageSize);
-			if (OPTION_OK != result) {
-				/* this -Xlp option must be formed properly even it might be overwritten by "-Xlp:objectheap" */
-				if (OPTION_MALFORMED == result) {
-					xlpErrorState = XLP_MEM_NAN;
-				} else {
-					xlpErrorState = XLP_MEM_OVERFLOW;
-				}
+		/* Configure -Xlp<Size>, or -Xlp:objectheap:pagesize=<size> */
+		else {
+			/* If the machine does not support large pages, we may fail.
+			 * Page flags for default large page size is not required, just pass NULL.
+			 */
+			j9vmem_default_large_page_size_ex(0, &requestedPageSize, NULL);
+			if (0 == requestedPageSize) {
+				xlpErrorState = XLP_OPTION_NOT_SUPPORTED;
+				xlpError.xlpOptionErrorString = "-Xlp";
 				goto _reportXlpError;
 			}
-		} else {
-			xlpErrorState = XLP_OPTION_NOT_SUPPORTED;
-			xlpError.xlpOptionErrorString = "-Xlp";
-			/* Cannot report error message here, as we may find a valid "-Xlp:objectheap" that overwrites this option */
-		}
-	}
 
-	/* Parse -Xlp:objectheap:pagesize=<size> option.
-	 * It overrides -Xlp option.
-	 * It also overrides -Xlp<size> option if it appears to the right of -Xlp<size>
-	 *
-	 * The proper formed -Xlp:objectheap: option must be (in strict order):
-	 * 	For all non-Z platforms:
-	 * 		-Xlp:objectheap:pagesize=<size> or
-	 * 		-Xlp:objectheap:pagesize=<size>,pageable or
-	 * 		-Xlp:objectheap:pagesize=<size>,nonpageable
-	 *
-	 * 	For Z platforms
-	 *		-Xlp:objectheap:pagesize=<size>,pageable or
-	 *		-Xlp:objectheap:pagesize=<size>,nonpageable
-	 */
-	xlpObjectHeapIndex = FIND_AND_CONSUME_ARG(STARTSWITH_MATCH, "-Xlp:objectheap:", NULL);
+			requestedPageSize = optionConfig->objectheapPageSizeRequested;
+#if	defined(J9ZOS390)
+			requestedPageFlags = optionConfig->objectheapIsPageable? J9PORT_VMEM_PAGE_FLAG_PAGEABLE: J9PORT_VMEM_PAGE_FLAG_FIXED;
+#else /* defined(J9ZOS390) */
+			requestedPageFlags = J9PORT_VMEM_PAGE_FLAG_NOT_USED;
+#endif
 
-	/* so if -Xlp:objectheap: is specified */
-	if ((-1 != xlpObjectHeapIndex) && (xlpObjectHeapIndex > xlpMemIndex)) {
-		/*
-		 * Parse sub options for -Xlp:objectheap:
-		 */
-		xlpErrorState = xlpSubOptionsParser(vm, xlpObjectHeapIndex, &xlpError, &requestedPageSize, &requestedPageFlags, &extensions->largePageFailOnError, &extensions->largePageWarnOnError);
+			/* If a valid -Xlp<size> or -Xlp:objectheap:pagesize=<size> is present, check if the requested page size is supported */
+			/* We don't need to check error state here - we did goto for all errors */
+			UDATA pageSize = requestedPageSize;
+			UDATA pageFlags = requestedPageFlags;
+			BOOLEAN isRequestedSizeSupported = FALSE;
 
-		if (xlpError.extraCommaWarning) {
-			/* print extra comma ignored warning */
-			j9nls_printf(PORTLIB, J9NLS_INFO, J9NLS_GC_OPTIONS_XLP_EXTRA_COMMA);
-		}
-	}
+			IDATA result = j9vmem_find_valid_page_size(0, &pageSize, &pageFlags, &isRequestedSizeSupported);
 
-	/* If there is a pending error state, report it now */
-	if (XLP_NO_ERROR != xlpErrorState) {
-		goto _reportXlpError;
-	}
+			/*
+			* j9vmem_find_valid_page_size happened to be changed to always return 0
+			* However formally the function type still be IDATA so assert if it returns anything else
+			*/
+			Assert_MM_true(0 == result);
 
-	/* If a valid -Xlp<size> or -Xlp:objectheap:pagesize=<size> is present, check if the requested page size is supported */
-	/* We don't need to check error state here - we did goto for all errors */
-	if ((-1 != xlpMemIndex) || (-1 != xlpObjectHeapIndex)) {
-		UDATA pageSize = requestedPageSize;
-		UDATA pageFlags = requestedPageFlags;
-		BOOLEAN isRequestedSizeSupported = FALSE;
+			extensions->requestedPageSize = pageSize;
+			extensions->requestedPageFlags = pageFlags;
 
-		IDATA result = j9vmem_find_valid_page_size(0, &pageSize, &pageFlags, &isRequestedSizeSupported);
-
-		/*
-		 * j9vmem_find_valid_page_size happened to be changed to always return 0
-		 * However formally the function type still be IDATA so assert if it returns anything else
-		 */
-		Assert_MM_true(0 == result);
-
-		extensions->requestedPageSize = pageSize;
-		extensions->requestedPageFlags = pageFlags;
-
-		if (!isRequestedSizeSupported) {
-			/* Print a message indicating requested page size is not supported and a different page size will be used */
-			const char *oldQualifier, *newQualifier;
-			const char *oldPageType = NULL;
-			const char *newPageType = NULL;
-			UDATA oldSize = requestedPageSize;
-			UDATA newSize = pageSize;
-			qualifiedSize(&oldSize, &oldQualifier);
-			qualifiedSize(&newSize, &newQualifier);
-			if (0 == (J9PORT_VMEM_PAGE_FLAG_NOT_USED & requestedPageFlags)) {
-				oldPageType = getPageTypeString(requestedPageFlags);
-			}
-			if (0 == (J9PORT_VMEM_PAGE_FLAG_NOT_USED & pageFlags)) {
-				newPageType = getPageTypeString(pageFlags);
-			}
-			if (NULL == oldPageType) {
-				if (NULL == newPageType) {
-					j9nls_printf(PORTLIB, J9NLS_INFO, J9NLS_GC_OPTIONS_LARGE_PAGE_SIZE_NOT_SUPPORTED, oldSize, oldQualifier, newSize, newQualifier);
-				} else {
-					j9nls_printf(PORTLIB, J9NLS_INFO, J9NLS_GC_OPTIONS_LARGE_PAGE_SIZE_NOT_SUPPORTED_WITH_NEW_PAGETYPE, oldSize, oldQualifier, newSize, newQualifier, newPageType);
+			if (!isRequestedSizeSupported) {
+				/* Print a message indicating requested page size is not supported and a different page size will be used */
+				const char *oldQualifier, *newQualifier;
+				const char *oldPageType = NULL;
+				const char *newPageType = NULL;
+				UDATA oldSize = requestedPageSize;
+				UDATA newSize = pageSize;
+				qualifiedSize(&oldSize, &oldQualifier);
+				qualifiedSize(&newSize, &newQualifier);
+				if (0 == (J9PORT_VMEM_PAGE_FLAG_NOT_USED & requestedPageFlags)) {
+					oldPageType = getPageTypeString(requestedPageFlags);
 				}
-			} else {
-				if (NULL == newPageType) {
-					j9nls_printf(PORTLIB, J9NLS_INFO, J9NLS_GC_OPTIONS_LARGE_PAGE_SIZE_NOT_SUPPORTED_WITH_REQUESTED_PAGETYPE, oldSize, oldQualifier, oldPageType, newSize, newQualifier);
+				if (0 == (J9PORT_VMEM_PAGE_FLAG_NOT_USED & pageFlags)) {
+					newPageType = getPageTypeString(pageFlags);
+				}
+				if (NULL == oldPageType) {
+					if (NULL == newPageType) {
+						j9nls_printf(PORTLIB, J9NLS_INFO, J9NLS_GC_OPTIONS_LARGE_PAGE_SIZE_NOT_SUPPORTED, oldSize, oldQualifier, newSize, newQualifier);
+					} else {
+						j9nls_printf(PORTLIB, J9NLS_INFO, J9NLS_GC_OPTIONS_LARGE_PAGE_SIZE_NOT_SUPPORTED_WITH_NEW_PAGETYPE, oldSize, oldQualifier, newSize, newQualifier, newPageType);
+					}
 				} else {
-					j9nls_printf(PORTLIB, J9NLS_INFO, J9NLS_GC_OPTIONS_LARGE_PAGE_SIZE_NOT_SUPPORTED_WITH_PAGETYPE, oldSize, oldQualifier, oldPageType, newSize, newQualifier, newPageType);
+					if (NULL == newPageType) {
+						j9nls_printf(PORTLIB, J9NLS_INFO, J9NLS_GC_OPTIONS_LARGE_PAGE_SIZE_NOT_SUPPORTED_WITH_REQUESTED_PAGETYPE, oldSize, oldQualifier, oldPageType, newSize, newQualifier);
+					} else {
+						j9nls_printf(PORTLIB, J9NLS_INFO, J9NLS_GC_OPTIONS_LARGE_PAGE_SIZE_NOT_SUPPORTED_WITH_PAGETYPE, oldSize, oldQualifier, oldPageType, newSize, newQualifier, newPageType);
+					}
 				}
 			}
 		}

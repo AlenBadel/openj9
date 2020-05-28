@@ -80,6 +80,7 @@
 #include "bcnames.h"
 #include "jimagereader.h"
 #include "vendor_version.h"
+#include "mmparse.h"
 
 #ifdef J9VM_OPT_ZIP_SUPPORT
 #include "zip_api.h"
@@ -1694,6 +1695,7 @@ IDATA VMInitStages(J9JavaVM *vm, IDATA stage, void* reserved) {
          				GET_MEMORY_VALUE(codecacheIndex, lpOption, optionConfig->codecachePageSizeRequested);
 					}
 					else if (codecacheIndex == xlpCodeCachePageSize) {
+						/* TODO: We can probably ignore the sub-options because */
 						char *lpOption = VMOPT_XLP_CODECACHE_PAGESIZE_EQUALS;
 						GET_MEMORY_VALUE(codecacheIndex, lpOption, optionConfig->codecachePageSizeRequested);
 					}
@@ -2107,7 +2109,7 @@ IDATA VMInitStages(J9JavaVM *vm, IDATA stage, void* reserved) {
 				GET_OPTION_VALUE(argIndex, ':', &optionValue);
 				GET_OPTION_OPTION(argIndex, ':', ':', &optionExtra);			/* Eg. -jcl:cldc:library=foo */
 				if (NULL != optionExtra) {
-					optionValueSize = optionExtra - optionValue - 1;
+					optionValueSize = optionExtra - optionValue - 1;2
 					strncpy(loadInfo->dllName, optionValue, optionValueSize);
 					loadInfo->dllName[optionValueSize] = '\0';
 				} else {
@@ -2564,6 +2566,8 @@ IDATA VMInitStages(J9JavaVM *vm, IDATA stage, void* reserved) {
 			break;
 	}
 	return returnVal;
+	_lagepageParseError:
+		generateLargePageOptionParseError(vm, parseError, parseErrorOption);
 	_memParseError :
 		loadInfo = FIND_DLL_TABLE_ENTRY( FUNCTION_VM_INIT );
 		generateMemoryOptionParseError(vm, loadInfo, parseError, parseErrorOption);
@@ -5692,6 +5696,10 @@ static IDATA createMapping(J9JavaVM* vm, char* j9Name, char* mapName, UDATA flag
 }
 #endif /* J9VM_OPT_SIDECAR */
 
+static void generateLargePageOptionParseError(J9JavaVM* vm, UDATA errorType, char* optionWithError) {
+
+}
+
 static void generateMemoryOptionParseError(J9JavaVM* vm, J9VMDllLoadInfo* loadInfo, UDATA errorType, char* optionWithError) {
 	char *errorBuffer;
 
@@ -7330,4 +7338,214 @@ parseGlrOption(J9JavaVM* jvm, char* option)
 	}
 
 	return JNI_ERR;
+}
+
+/**
+ * Parse sub options for -Xlp:codecache:****, and -Xlp:objectheap:*****
+ */
+static XlpErrorState
+xlpSubOptionsParser(J9JavaVM *vm, IDATA xlpIndex, XlpError *xlpError, UDATA *requestedPageSize, UDATA *requestedPageFlags, bool *strict, bool *warn)
+{
+	/* -Xlp:objectheap: found and it is most right option, so it is not overwritten by -Xlp<size> */
+	char *optionsString = NULL;
+	char *scan_limit = NULL;
+
+	/* start parsing with option */
+	parsingStates parsingState = PARSING_FIRST_OPTION;
+	UDATA optionNumber = 1;
+	char *previousOption = NULL;
+	char *errorString = NULL;
+
+	UDATA pageSizeHowMany = 0;
+#if	defined(J9ZOS390)
+	UDATA pageableHowMany = 0;
+	UDATA pageableOptionNumber = 0;
+	UDATA nonPageableHowMany = 0;
+	UDATA nonPageableOptionNumber = 0;
+#endif /* defined(J9ZOS390) */
+
+	/* Reset error state from parsing of previous -Xlp<size> option */
+	XlpErrorState xlpErrorState = XLP_NO_ERROR;
+
+	xlpError->xlpOptionErrorString = NULL;
+	xlpError->xlpOptionErrorStringSize = 0;
+	xlpError->xlpMissingOptionString = NULL;
+	xlpError->extraCommaWarning  = false;
+
+	/* Get pointer to entire option */
+	GET_OPTION_OPTION(xlpIndex, ':', ':', &optionsString);
+
+	/* optionsString can not be NULL here, though it may point to null ('\0') character */
+	scan_limit = optionsString + strlen(optionsString);
+
+	/*
+	 * parsing -Xlp:objectheap: for options
+	 *
+	 * reporting general parsing problems (bad formed and unknown options)
+	 * recognize cases where extra commas are entered to print warning after if necessary
+	 */
+
+	while (optionsString < scan_limit) {
+		if (try_scan(&optionsString, ",")) {
+			/* Comma separator is discovered */
+			switch (parsingState) {
+			case PARSING_FIRST_OPTION:
+				/* leading comma - ignored but warning required */
+				xlpError->extraCommaWarning = true;
+				parsingState = PARSING_OPTION;
+				break;
+			case PARSING_OPTION:
+				/* more then one comma - ignored but warning required */
+				xlpError->extraCommaWarning = true;
+				break;
+			case PARSING_COMMA:
+				/* expecting for comma here, next should be an option*/
+				parsingState = PARSING_OPTION;
+				/* next option number */
+				optionNumber += 1;
+				break;
+			case PARSING_ERROR:
+			default:
+				/* must be unreachable states */
+				Assert_MM_unreachable();
+				break;
+			}
+		} else {
+			/* Comma separator has not been found. so */
+			switch (parsingState) {
+			case PARSING_FIRST_OPTION:
+				/* still looking for parsing of first option - nothing to do */
+				parsingState = PARSING_OPTION;
+				break;
+			case PARSING_OPTION:
+				/* Can not recognize an option case */
+				Assert_MM_true(previousOption == optionsString);
+				errorString = optionsString;
+				parsingState = PARSING_ERROR;
+				break;
+			case PARSING_COMMA:
+				/* can not find comma after option - so this is something unrecognizable at the end of known option */
+				errorString = previousOption;
+				parsingState = PARSING_ERROR;
+				break;
+			case PARSING_ERROR:
+			default:
+				/* must be unreachable states */
+				Assert_MM_unreachable();
+				break;
+			}
+		}
+
+		if (PARSING_ERROR == parsingState) {
+			Assert_MM_true(NULL != errorString);
+
+			xlpErrorState =  XLP_PARAMETER_NOT_RECOGNIZED;
+			xlpError->xlpOptionErrorString = errorString;
+
+			/* try to find comma to isolate unrecognized option */
+			char *commaLocation = strchr(errorString, ',');
+			if (NULL != commaLocation) {
+				/* comma found */
+				xlpError->xlpOptionErrorStringSize = (size_t)(commaLocation - errorString);
+			} else {
+				/* comma not found - print to the end of the string */
+				xlpError->xlpOptionErrorStringSize = strlen(errorString);
+			}
+
+			return xlpErrorState;
+		}
+
+		/* check that something was parsed or previousOption still NULL, otherwise we are in dead loop */
+		Assert_MM_true((NULL == previousOption) || (previousOption != optionsString));
+
+		previousOption = optionsString;
+
+		if (try_scan(&optionsString, "pagesize=")) {
+			/* try to get memory value */
+			if (!scan_udata_memory_size_helper(vm, &optionsString, requestedPageSize, "pagesize=")) {
+				/* size is not formed properly */
+				xlpErrorState = XLP_PAGE_SIZE_INCORRECT;
+				return xlpErrorState;
+			}
+
+			pageSizeHowMany += 1;
+
+			parsingState = PARSING_COMMA;
+		} else if (try_scan(&optionsString, "pageable")) {
+#if	defined(J9ZOS390)
+			pageableHowMany += 1;
+			pageableOptionNumber = optionNumber;
+#endif /* defined(J9ZOS390) */
+			parsingState = PARSING_COMMA;
+		} else if (try_scan(&optionsString, "nonpageable")) {
+#if	defined(J9ZOS390)
+			nonPageableHowMany += 1;
+			nonPageableOptionNumber = optionNumber;
+#endif /* defined(J9ZOS390) */
+			parsingState = PARSING_COMMA;
+		} else if ((NULL != strict) && try_scan(&optionsString, "strict")) {
+			*strict = true;
+			parsingState = PARSING_COMMA;
+		} else if ((NULL != warn) && try_scan(&optionsString, "warn")) {
+			*warn = true;
+			parsingState = PARSING_COMMA;
+		}
+	}
+
+	/*
+	 * post-parse check for trailing comma(s)
+	 */
+	switch (parsingState) {
+	/* if loop ended in one of these two states extra comma warning required */
+	case PARSING_FIRST_OPTION:
+	case PARSING_OPTION:
+		/* trailing comma(s) or comma(s) alone */
+		xlpError->extraCommaWarning = true;
+		break;
+	case PARSING_COMMA:
+		/* loop ended at comma search state - do nothing */
+		break;
+	case PARSING_ERROR:
+	default:
+		/* must be unreachable states */
+		Assert_MM_unreachable();
+		break;
+	}
+
+	/* --- analyze correctness of entered options --- */
+	/*
+	 * pagesize = <size>
+	 *  - this options must be specified for all platforms
+	 */
+	if (0 == pageSizeHowMany) {
+		/* error: pagesize= must be specified */
+		xlpErrorState = XLP_INCOMPLETE_OPTION;
+		xlpError->xlpOptionErrorString = "-Xlp:objectheap:";
+		xlpError->xlpMissingOptionString = "pagesize=";
+		return xlpErrorState;
+	}
+
+#if defined(J9ZOS390)
+	/*
+	 *  [non]pageable
+	 *  - this option must be specified for Z platforms
+	 */
+	if ((0 == pageableHowMany) && (0 == nonPageableHowMany)) {
+		/* error: [non]pageable not found */
+		xlpErrorState = XLP_INCOMPLETE_OPTION;
+		xlpError->xlpOptionErrorString = "-Xlp:objectheap:";
+		xlpError->xlpMissingOptionString = "[non]pageable";
+		return xlpErrorState;
+	}
+
+	if (pageableOptionNumber > nonPageableOptionNumber) {
+		/* pageable is most right */
+		*requestedPageFlags = J9PORT_VMEM_PAGE_FLAG_PAGEABLE;
+	} else {
+		/* nonpageable is most right */
+		*requestedPageFlags = J9PORT_VMEM_PAGE_FLAG_FIXED;
+	}
+#endif /* defined(J9ZOS390) */
+
+	return xlpErrorState;
 }

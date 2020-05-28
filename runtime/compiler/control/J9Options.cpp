@@ -1249,7 +1249,6 @@ J9::Options::fePreProcess(void * base)
       self()->setOption(TR_DisableMonitorOpts);
    #endif
 
-
    value = mmf->j9gc_modron_getConfigurationValueForKey(vm, j9gc_modron_configuration_allocationType,&value) ?value:0;
    if (j9gc_modron_allocation_type_segregated == value)
       self()->setRealTimeGC(true);

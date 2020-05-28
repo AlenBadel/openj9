@@ -78,10 +78,21 @@ struct J9GcMemoryParameter {
 	UDATA valueRound;
 };
 
+typedef enum {
+	XLP_NO_ERROR = 0,
+	XLP_OPTION_NOT_SUPPORTED,
+	XLP_MEM_NAN,
+	XLP_MEM_OVERFLOW,
+	XLP_PAGE_SIZE_INCORRECT,
+	XLP_INCOMPLETE_OPTION,
+	XLP_LARGE_PAGE_NOT_SUPPORTED,
+	XLP_PARAMETER_NOT_RECOGNIZED
+} XlpErrorState;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-	
+
 jint gcParseCommandLineAndInitializeWithValues(J9JavaVM *vm, IDATA *memoryParameters);
 bool gcParseTGCCommandLine(J9JavaVM *vm);
 
