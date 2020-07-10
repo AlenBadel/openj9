@@ -580,7 +580,6 @@ gcParseXlpOption(J9JavaVM *vm)
 	IDATA xlpIndex = -1;
 	IDATA xlpMemIndex = -1;
 	IDATA xlpObjectHeapIndex = -1;
-	IDATA xlpGCIndex = -1;
 	UDATA requestedPageSize = 0;
 	UDATA requestedPageFlags = J9PORT_VMEM_PAGE_FLAG_NOT_USED;
 	PORT_ACCESS_FROM_JAVAVM(vm);
@@ -716,59 +715,6 @@ gcParseXlpOption(J9JavaVM *vm)
 					j9nls_printf(PORTLIB, J9NLS_INFO, J9NLS_GC_OPTIONS_LARGE_PAGE_SIZE_NOT_SUPPORTED_WITH_PAGETYPE, oldSize, oldQualifier, oldPageType, newSize, newQualifier, newPageType);
 				}
 			}
-		}
-	}
-
-	/*
-	 * Check for -Xlp:gc: and handle it if necessary
-	 */
-	xlpGCIndex = FIND_AND_CONSUME_ARG(STARTSWITH_MATCH, "-Xlp:gcmetadata:", NULL);
-
-	if (-1 != xlpGCIndex) {
-		UDATA gcmetadataPageSize = 0;
-		UDATA gcmetadataPageFlags = J9PORT_VMEM_PAGE_FLAG_NOT_USED;
-		UDATA *pageSizes;
-		UDATA *pageFlags;
-		bool found = false;
-		/*
-		 * Parse sub options for -Xlp:gc:
-		 */
-		xlpErrorState = xlpSubOptionsParser(vm, xlpGCIndex, &xlpError, &gcmetadataPageSize, &gcmetadataPageFlags, NULL, NULL);
-
-		if (XLP_NO_ERROR != xlpErrorState) {
-			goto _reportXlpError;
-		}
-
-		if (xlpError.extraCommaWarning) {
-			/* print extra comma ignored warning */
-			j9nls_printf(PORTLIB, J9NLS_INFO, J9NLS_GC_OPTIONS_XLP_EXTRA_COMMA);
-		}
-
-		/*
-		 * Update values in case of exact match only
-		 */
-		pageSizes = j9vmem_supported_page_sizes();
-		pageFlags = j9vmem_supported_page_flags();
-
-		for (UDATA pageIndex = 0; 0 != pageSizes[pageIndex]; ++pageIndex) {
-			if ((pageSizes[pageIndex] == gcmetadataPageSize) && (pageFlags[pageIndex] == gcmetadataPageFlags)) {
-				found = true;
-				extensions->gcmetadataPageSize = gcmetadataPageSize;
-				extensions->gcmetadataPageFlags = gcmetadataPageFlags;
- 				break;
-			}
-		}
-
-		if (!found) {
-			const char *oldQualifier, *newQualifier;
-			UDATA oldSize = gcmetadataPageSize;
-			UDATA newSize = extensions->gcmetadataPageSize;
-			const char *oldPageType = getPageTypeStringWithLeadingSpace(oldSize);
-			const char *newPageType = getPageTypeStringWithLeadingSpace(newSize);
-			qualifiedSize(&oldSize, &oldQualifier);
-			qualifiedSize(&newSize, &newQualifier);
-
-			j9nls_printf(PORTLIB, J9NLS_INFO, J9NLS_GC_OPTIONS_XLP_PAGE_NOT_SUPPORTED, "gcmetadata", oldSize, oldQualifier, oldPageType, newSize, newQualifier, newPageType);
 		}
 	}
 
