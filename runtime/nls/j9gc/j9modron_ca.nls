@@ -605,6 +605,15 @@ J9NLS_GC_VERB_SIZES_XLP.user_response=None
 
 # END NON-TRANSLATABLE
 
+# This is a GC option outpuit by -verbose:sizes
+J9NLS_GC_VERB_ENABLE_XLP=state of large pages on object heap
+# START NON-TRANSLATABLE
+J9NLS_GC_VERB_ENABLE_XLP.explanation=Explains the -XX:[+/-]UseLargePagesObjectHeap option is specified
+J9NLS_GC_VERB_ENABLE_XLP.system_action=None
+J9NLS_GC_VERB_ENABLE_XLP.user_response=None
+
+# END NON-TRANSLATABLE
+
 J9NLS_GC_VERB_SIZES_AVAILABLE_XLP=Mides de p\u00e0gina gran disponibles:
 # START NON-TRANSLATABLE
 J9NLS_GC_VERB_SIZES_AVAILABLE_XLP.explanation=When J9NLS_GC_OPTIONS_LARGE_PAGE_SIZE_NOT_SUPPORTED is displayed, it will be followed by this message and then a list of supported sizes

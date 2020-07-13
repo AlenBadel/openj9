@@ -318,6 +318,15 @@ J9NLS_VERB_SIZES_XLP_CODECACHE.user_response=
 
 # END NON-TRANSLATABLE
 
+# This is a JIT option output by -verbose:sizes
+J9NLS_VERB_ENABLE_XLP_CODECACHE=state of large pages on JIT code cache
+# START NON-TRANSLATABLE
+J9NLS_VERB_ENABLE_XLP_CODECACHE.explanation=Explains the -XX:[+/-]UseLargePagesCodeCache option is specified
+J9NLS_VERB_ENABLE_XLP_CODECACHE.system_action=None
+J9NLS_VERB_ENABLE_XLP_CODECACHE.user_response=none
+
+# END NON-TRANSLATABLE
+
 J9NLS_VERB_SIZES_AVAILABLE_XLP_CODECACHE=Dostupn\u00e9 velikosti rozs\u00e1hl\u00e9 str\u00e1nky pro mezipam\u011b\u0165 k\u00f3du JIT:
 # START NON-TRANSLATABLE
 J9NLS_VERB_SIZES_AVAILABLE_XLP_CODECACHE.explanation=NOTAG

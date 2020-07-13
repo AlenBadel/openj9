@@ -1998,3 +1998,18 @@ J9NLS_VM_CLASS_LOADING_ERROR_CLASS_NOT_PERMITTED_BY_SEALEDINTERFACE.explanation=
 J9NLS_VM_CLASS_LOADING_ERROR_CLASS_NOT_PERMITTED_BY_SEALEDINTERFACE.system_action=The JVM will throw an IncompatibleClassChangeError.
 J9NLS_VM_CLASS_LOADING_ERROR_CLASS_NOT_PERMITTED_BY_SEALEDINTERFACE.user_response=Contact the provider of the classfile for a corrected version.
 # END NON-TRANSLATABLE
+
+# TODO: Add Translations
+J9NLS_VM_XLP_DEPRECATED=-Xlp, -Xlp:<size>, -Xlp:codecache, and -Xlp:objectheap have been marked for deprecated for removal and may not be accepted options in the future.
+# START NON-TRANSLATABLE
+J9NLS_VM_XLP_DEPRECATED.explanation=Xlp, and -Xlp:<size> have been marked for deprecated for removal and may not be accepted options in the future.
+J9NLS_VM_XLP_DEPRECATED.system_action=The JVM will show a warning and continue to recognize the options.
+J9NLS_VM_XLP_DEPRECATED.user_response=Consider not using these options as they will likely be removed in a future release. Consider replacing with respective -XX:[+/-]UseLargePages, and -XX:LargePageSizeInBytes=<size> options.
+# END NON-TRANSLATABLE
+
+J9NLS_VM_LP_ENABLED_SIZE_NOT_SET=Large Pages have been enabled, but size has not been specified.
+# START NON-TRANSLATABLE
+J9NLS_VM_LP_ENABLED_SIZE_NOT_SET.explanation=Large Pages have been enabled, but size has not been specified.
+J9NLS_VM_LP_ENABLED_SIZE_NOT_SET.system_action=The JVM will show a warning and continue to use system defined large pages if Warnings are enabled. The JVM will not proceed when Errors are enabled.
+J9NLS_VM_LP_ENABLED_SIZE_NOT_SET.user_response=Consider specifying page size using -XX:LargePageSizeInBytes=<size>.
+# END NON-TRANSLATABLE

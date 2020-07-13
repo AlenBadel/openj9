@@ -248,15 +248,6 @@ J9NLS_JIT_OUT_OF_MEMORY.system_action=TODO
 J9NLS_JIT_OUT_OF_MEMORY.user_response=TODO
 # END NON-TRANSLATABLE
 
-J9NLS_JIT_OPTIONS_XLP_UNRECOGNIZED_OPTION=\uc2dc\uc2a4\ud15c \uad6c\uc131\uc774 '-Xlp' \uc635\uc158\uc5d0\uc11c '%.*s' \ub9e4\uac1c\ubcc0\uc218\ub97c \uc9c0\uc6d0\ud558\uc9c0 \uc54a\uc2b5\ub2c8\ub2e4.
-# START NON-TRANSLATABLE
-J9NLS_JIT_OPTIONS_XLP_UNRECOGNIZED_OPTION.explanation=Specified parameter is not recognized in -Xlp option
-J9NLS_JIT_OPTIONS_XLP_UNRECOGNIZED_OPTION.system_action=The JVM will terminate
-J9NLS_JIT_OPTIONS_XLP_UNRECOGNIZED_OPTION.user_response=Remove the unrecognized parameter from -Xlp option
-J9NLS_JIT_OPTIONS_XLP_UNRECOGNIZED_OPTION.sample_input_1=3
-J9NLS_JIT_OPTIONS_XLP_UNRECOGNIZED_OPTION.sample_input_2=abc
-# END NON-TRANSLATABLE
-
 J9NLS_JIT_OPTIONS_MUST_BE_NUMBER=%s\uc740(\ub294) \uc22b\uc790 \ub2e4\uc74c\uc5d0 \uc640\uc57c \ud569\ub2c8\ub2e4.
 # START NON-TRANSLATABLE
 J9NLS_JIT_OPTIONS_MUST_BE_NUMBER.explanation=The specified option must be immediately followed by a number
@@ -279,22 +270,6 @@ J9NLS_JIT_OPTIONS_INCORRECT_MEMORY_SIZE.explanation=Value specified for the opti
 J9NLS_JIT_OPTIONS_INCORRECT_MEMORY_SIZE.system_action=The JVM will terminate
 J9NLS_JIT_OPTIONS_INCORRECT_MEMORY_SIZE.user_response=Correct the option
 J9NLS_JIT_OPTIONS_INCORRECT_MEMORY_SIZE.sample_input_1=-Xlp:codecache:pagesize=<size>
-# END NON-TRANSLATABLE
-
-J9NLS_JIT_OPTIONS_XLP_INCOMPLETE_OPTION='%1$s' \uc635\uc158\uc774 \uc644\ub8cc\ub418\uc9c0 \uc54a\uc558\uc2b5\ub2c8\ub2e4. '%2$s' \ub9e4\uac1c\ubcc0\uc218\ub97c \uc9c0\uc815\ud574\uc57c \ud569\ub2c8\ub2e4.
-# START NON-TRANSLATABLE
-J9NLS_JIT_OPTIONS_XLP_INCOMPLETE_OPTION.explanation=Specified option is not complete, it requires more parameters
-J9NLS_JIT_OPTIONS_XLP_INCOMPLETE_OPTION.system_action=The JVM will terminate
-J9NLS_JIT_OPTIONS_XLP_INCOMPLETE_OPTION.user_response=Specify all the required parameter for -Xlp option
-J9NLS_JIT_OPTIONS_XLP_INCOMPLETE_OPTION.sample_input_1=-Xlp:codecache:
-J9NLS_JIT_OPTIONS_XLP_INCOMPLETE_OPTION.sample_input_2=[non]pageable
-# END NON-TRANSLATABLE
-
-J9NLS_JIT_OPTIONS_XLP_EXTRA_COMMA='-Xlp' \uc635\uc158\uc5d0\uc11c \ucd94\uac00 \uc27c\ud45c \ubb38\uc790\ub97c \ubc1c\uacac\ud588\uc2b5\ub2c8\ub2e4. \uc774\ub97c \ubb34\uc2dc\ud569\ub2c8\ub2e4.
-# START NON-TRANSLATABLE
-J9NLS_JIT_OPTIONS_XLP_EXTRA_COMMA.explanation=Extra comma characters are discovered in '-Xlp' option
-J9NLS_JIT_OPTIONS_XLP_EXTRA_COMMA.system_action=The JVM will ignore extra comma characters
-J9NLS_JIT_OPTIONS_XLP_EXTRA_COMMA.user_response=Remove extra commas from -Xlp option
 # END NON-TRANSLATABLE
 
 J9NLS_JIT_OPTIONS_LARGE_PAGE_SIZE_NOT_SUPPORTED=\ud070 \ud398\uc774\uc9c0 \ud06c\uae30 %1$zu%2$s\uc740(\ub294) JIT \ucf54\ub4dc \uce90\uc2dc\uc5d0\uc11c \uc9c0\uc6d0\ub418\uc9c0 \uc54a\ub294 \ud398\uc774\uc9c0 \ud06c\uae30\uc785\ub2c8\ub2e4. %3$zu%4$s\uc744(\ub97c) \ub300\uc2e0 \uc0ac\uc6a9\ud558\uc2ed\uc2dc\uc624.
