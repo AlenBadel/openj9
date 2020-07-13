@@ -232,29 +232,23 @@ dumpXlpCodeCache(J9JavaVM *jvm)
 		pageSizes = j9vmem_supported_page_sizes();
 		pageFlags = j9vmem_supported_page_flags();
 
-		/* Loop to determine if the system supports executable large pages */
-		for(pageIndex = 0; 0 != pageSizes[pageIndex]; pageIndex++) {
-			pageSizeEntry = pageSizes[pageIndex];
-			pageFlagsEntry = pageFlags[pageIndex];
-			j9vmem_find_valid_page_size(J9PORT_VMEM_MEMORY_MODE_EXECUTE, &pageSizeEntry, &pageFlagsEntry, &isSupported);
-			if (TRUE == isSupported) {
-				executableLargePageSupported = TRUE;
-				break;
-			}
-		}
+		/* J9LargePageOptionsInfo carries the large page configuration that was requested. */
+		J9LargePageOptionsInfo *lpInfo = &(jvm->largePageOptionInfo);
+		const char *optionNameUseLargePages = lpInfo->isEnabledForCodeCache ? "-XX:+UseLargePagesCodeCache" : "-XX:-UseLargePagesCodeCache";
+		const char* optionDescription = NULL;
 
-		if (TRUE == executableLargePageSupported) {
+		/* look up the appropriate translation */
+		optionDescription = j9nls_lookup_message(
+			J9NLS_DO_NOT_APPEND_NEWLINE | J9NLS_DO_NOT_PRINT_MESSAGE_TAG,
+			J9NLS_VERB_ENABLE_XLP_CODECACHE,
+			NULL);
+		j9tty_printf(PORTLIB, "  %s\t %s\n", optionNameUseLargePages, optionDescription);
+
+		const char *optionNameLargePageSizeInBytesCodeCache = (lpInfo->pageSizeForCodeCache != 0) ? "-XX:LargePageSizeInBytesCodeCache=" : NULL;
+		const char *qualifier = NULL;
+		if (NULL != optionNameLargePageSizeInBytesCodeCache) {
 			UDATA codePageSize = jitConfig->largeCodePageSize;
 			UDATA codePageFlags = jitConfig->largeCodePageFlags;
-			const char* optionDescription = NULL;
-			const char *optionName = "-Xlp:codecache:pagesize=";
-			const char *qualifier = NULL;
-			const U_32 spaceCount = 15;
-
-			if (0 == codePageSize) {
-				codePageSize = pageSizes[0];
-				codePageFlags = pageFlags[0];
-			}
 
 			/* Obtain the qualified size (e.g. 4K) */
 			codePageSize = getQualifiedSize(codePageSize, &qualifier);
@@ -264,33 +258,32 @@ dumpXlpCodeCache(J9JavaVM *jvm)
 													J9NLS_VERB_SIZES_XLP_CODECACHE,
 													NULL);
 
-			j9tty_printf(PORTLIB, "  %s%zu%s", optionName, codePageSize, qualifier);
+			j9tty_printf(PORTLIB, "  %s%zu%s", optionNameLargePageSizeInBytesCodeCache, codePageSize, qualifier);
 			if (J9PORT_VMEM_PAGE_FLAG_NOT_USED != (J9PORT_VMEM_PAGE_FLAG_NOT_USED & codePageFlags)) {
 				j9tty_printf(PORTLIB, ",%s", getPageTypeString(codePageFlags));
 			}
-			j9tty_printf(PORTLIB, "\t %s\n", optionDescription);
+			j9tty_printf(PORTLIB, "\n");
+		}
 
-			/* Now list all available page sizes that support executable pages. */
-			optionDescription = j9nls_lookup_message(J9NLS_DO_NOT_APPEND_NEWLINE | J9NLS_DO_NOT_PRINT_MESSAGE_TAG,
-													J9NLS_VERB_SIZES_AVAILABLE_XLP_CODECACHE,
-													NULL);
+		const U_32 spaceCount = 15;
+		/* Now list all available page sizes that support executable pages. */
+		optionDescription = j9nls_lookup_message(J9NLS_DO_NOT_APPEND_NEWLINE | J9NLS_DO_NOT_PRINT_MESSAGE_TAG,
+												J9NLS_VERB_SIZES_AVAILABLE_XLP_CODECACHE,
+												NULL);
 
-			j9tty_printf(PORTLIB, "  %*s %s", spaceCount, " ", optionDescription);
+		j9tty_printf(PORTLIB, "  %*s %s", spaceCount, " ", optionDescription);
 
-			for(pageIndex = 0; 0 != pageSizes[pageIndex]; pageIndex++) {
-				pageSizeEntry = pageSizes[pageIndex];
-				pageFlagsEntry = pageFlags[pageIndex];
-				isSupported = FALSE;
+		for(pageIndex = 0; 0 != pageSizes[pageIndex]; pageIndex++) {
+			pageSizeEntry = pageSizes[pageIndex];
+			pageFlagsEntry = pageFlags[pageIndex];
+			isSupported = FALSE;
 
-				j9vmem_find_valid_page_size(J9PORT_VMEM_MEMORY_MODE_EXECUTE, &pageSizeEntry, &pageFlagsEntry, &isSupported);
-				if (TRUE == isSupported) {
-					pageSizeEntry = getQualifiedSize(pageSizeEntry, &qualifier);
-					j9tty_printf(PORTLIB, "\n  %*s %zu%s", spaceCount, " ", pageSizeEntry, qualifier);
-					if (J9PORT_VMEM_PAGE_FLAG_NOT_USED != (J9PORT_VMEM_PAGE_FLAG_NOT_USED & pageFlagsEntry)) {
-						j9tty_printf(PORTLIB, " %s", getPageTypeString(pageFlagsEntry));
-					}
-				} else {
-					/* This page size does not support executable pages, skip it. */
+			j9vmem_find_valid_page_size(J9PORT_VMEM_MEMORY_MODE_EXECUTE, &pageSizeEntry, &pageFlagsEntry, &isSupported);
+			if (TRUE == isSupported) {
+				pageSizeEntry = getQualifiedSize(pageSizeEntry, &qualifier);
+				j9tty_printf(PORTLIB, "\n  %*s %zu%s", spaceCount, " ", pageSizeEntry, qualifier);
+				if (J9PORT_VMEM_PAGE_FLAG_NOT_USED != (J9PORT_VMEM_PAGE_FLAG_NOT_USED & pageFlagsEntry)) {
+					j9tty_printf(PORTLIB, " %s", getPageTypeString(pageFlagsEntry));
 				}
 			}
 			j9tty_printf(PORTLIB, "\n");

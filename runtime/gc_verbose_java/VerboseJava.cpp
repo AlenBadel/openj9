@@ -268,8 +268,8 @@ gcDumpMemorySizes(J9JavaVM *javaVM)
 		gcDumpQualifiedSize(PORTLIB, extensions->softMx, "-Xsoftmx", J9NLS_GC_VERB_SIZES_XSOFTMX);
 	}
 
-
-	pageSizes = j9vmem_supported_page_sizes();
+	/* J9LargePageOptionsInfo carries the large page configuration that was requested. */
+	J9LargePageOptionsInfo *lpInfo = &(javaVM->largePageOptionInfo);
 	/* If entry at index 1 of supported page size array is non zero, then large pages are available */
 	{
 		const char* optionDescription = NULL;
@@ -277,33 +277,51 @@ gcDumpMemorySizes(J9JavaVM *javaVM)
 		UDATA pageIndex = 0;
 		UDATA size = 0;
 		const char *qualifier = NULL;
-		const char* optionName = "-Xlp:objectheap:pagesize=";
+		const char* optionNameUseLargePages = lpInfo->isEnabledForObjectHeap ? "-XX:+UseLargePagesObjectHeap" : "-XX:-UseLargePagesObjectHeap";
+		const char* optionNameCautionLevel = lpInfo->lpCautionLevel == J9CautionError? "-XX:+LargePageError" : lpInfo->lpCautionLevel == J9CautionWarning ? "-XX:+LargePageWarning" : NULL;
+		const char* optionNameLargePageSizeInBytesObjectHeap = (lpInfo->pageSizeForObjectHeap != 0) ? "-XX:LargePageSizeInBytesObjectHeap=" : NULL;
 		char postOption[16] = {'\0'};
 
-		/* Obtain the qualified size (e.g. 4K) */
-		size = extensions->requestedPageSize;
-		qualifiedSize(&size, &qualifier);
-
-		/* look up the appropriate translation */
 		optionDescription = j9nls_lookup_message(
 			J9NLS_DO_NOT_APPEND_NEWLINE | J9NLS_DO_NOT_PRINT_MESSAGE_TAG,
-			J9NLS_GC_VERB_SIZES_XLP,
+			J9NLS_GC_VERB_ENABLE_XLP,
 			NULL);
+		j9tty_printf(PORTLIB, "  %s\t %s\n", optionNameUseLargePages, optionDescription);
 
-		if (J9PORT_VMEM_PAGE_FLAG_NOT_USED != extensions->requestedPageFlags) {
-			j9str_printf(PORTLIB, postOption, 16, ",%s", getPageTypeString(extensions->requestedPageFlags));
+		if (NULL != optionNameCautionLevel) {
+			optionDescription = j9nls_lookup_message(
+				J9NLS_DO_NOT_APPEND_NEWLINE | J9NLS_DO_NOT_PRINT_MESSAGE_TAG,
+				J9NLS_GC_VERB_CAUTION_XLP,
+				NULL);
+			j9tty_printf(PORTLIB, "  %s\t %s\n", optionNameCautionLevel, optionDescription);
 		}
 
-		j9tty_printf(PORTLIB, "  %s%zu%s%s\t %s\n", optionName, size, qualifier, postOption, optionDescription);
+		if (NULL != optionNameLargePageSizeInBytesObjectHeap) {
 
+			/* Obtain the qualified size (e.g. 4K) */
+			size = extensions->requestedPageSize;
+			qualifiedSize(&size, &qualifier);
+
+			/* look up the appropriate translation */
+			optionDescription = j9nls_lookup_message(
+				J9NLS_DO_NOT_APPEND_NEWLINE | J9NLS_DO_NOT_PRINT_MESSAGE_TAG,
+				J9NLS_GC_VERB_SIZES_XLP,
+				NULL);
+
+			if (J9PORT_VMEM_PAGE_FLAG_NOT_USED != extensions->requestedPageFlags) {
+				j9str_printf(PORTLIB, postOption, 16, ",%s", getPageTypeString(extensions->requestedPageFlags));
+			}
+
+			j9tty_printf(PORTLIB, "  %s%zu%s%s\t %s\n", optionNameLargePageSizeInBytesObjectHeap, size, qualifier, postOption, optionDescription);
+		}
+	
 		pageFlags = j9vmem_supported_page_flags();
-
+		pageSizes = j9vmem_supported_page_sizes();
 		optionDescription = j9nls_lookup_message(J9NLS_DO_NOT_APPEND_NEWLINE | J9NLS_DO_NOT_PRINT_MESSAGE_TAG,
 			J9NLS_GC_VERB_SIZES_AVAILABLE_XLP,
 			NULL);
 
 		j9tty_printf(PORTLIB, "  %*s %s", 15, " ", optionDescription);
-
 		for(pageIndex = 0; 0 != pageSizes[pageIndex]; pageIndex++) {
 			const char *pageTypeString = NULL;
 			size = pageSizes[pageIndex];

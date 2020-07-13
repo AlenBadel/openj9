@@ -318,6 +318,15 @@ J9NLS_VERB_SIZES_XLP_CODECACHE.user_response=
 
 # END NON-TRANSLATABLE
 
+# This is a JIT option output by -verbose:sizes
+J9NLS_VERB_ENABLE_XLP_CODECACHE=state of large pages on JIT code cache
+# START NON-TRANSLATABLE
+J9NLS_VERB_ENABLE_XLP_CODECACHE.explanation=Explains the -XX:[+/-]UseLargePagesCodeCache option is specified
+J9NLS_VERB_ENABLE_XLP_CODECACHE.system_action=None
+J9NLS_VERB_ENABLE_XLP_CODECACHE.user_response=none
+
+# END NON-TRANSLATABLE
+
 J9NLS_VERB_SIZES_AVAILABLE_XLP_CODECACHE=JIT k\u00f3dgyors\u00edt\u00f3t\u00e1r el\u00e9rhet\u0151 nagy lapm\u00e9retei:
 # START NON-TRANSLATABLE
 J9NLS_VERB_SIZES_AVAILABLE_XLP_CODECACHE.explanation=NOTAG

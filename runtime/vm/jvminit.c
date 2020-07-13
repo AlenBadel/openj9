@@ -138,6 +138,29 @@ typedef struct {
 	char* j9libvmDirectory;
 } J9InitializeJavaVMArgs;
 
+#if 0
+typedef enum {
+	PARSING_FIRST_OPTION = 1,
+	PARSING_OPTION,
+	PARSING_COMMA,
+	PARSING_ERROR
+} XlpParsingStates;
+#endif 
+
+#if 0
+/**
+ * @name Large Page error states.
+ *
+ * @{
+ */
+typedef struct LargePageError {
+	const char *optionErrorString;
+	size_t optionErrorStringSize;
+	const char *missingOptionString;
+	BOOLEAN xlpExtraCommaWarning;
+};
+#endif
+
 #define IGNORE_ME_STRING "_ignore_me"
 #define SILENT_EXIT_STRING "_silent_exit"
 
@@ -1899,6 +1922,265 @@ IDATA VMInitStages(J9JavaVM *vm, IDATA stage, void* reserved) {
 				}
 			}
 #endif /* defined(AIXPPC) */
+
+			/* Parse Large page options */
+			{	
+				J9LargePageOptionsInfo* lpInfo = &(vm->largePageOptionInfo);
+				/* -Xlp Options */
+				#ifdef ENABLE_XLP
+				/* TODO: GC Uses FIND_AND_CONSUME_ARG_2. This may cause an undocumented bug using the newer version. */
+				IDATA argXlpExact = FIND_AND_CONSUME_ARG(EXACT_MATCH, '-Xlp', NULL);
+				IDATA argXlp = FIND_AND_CONSUME_ARG(EXACT_MEMORY_MATCH, '-Xlp', NULL);
+				IDATA argXlpCodeCache = FIND_AND_CONSUME_ARG(STARTSWITH_MATCH, '-Xlp:codecache:');
+				IDATA argXlpObjectHeap = FIND_AND_CONSUME_ARG(STARTSWITH_MATCH, '-Xlp:objectheap:');
+				/* Arguments to be filled in by sub-options parser. */
+				UDATA xlpSize = 0;
+				UDATA xlpCodeCacheSize = 0;
+				UDATA xlpCodeCachePageType = 0; /* Unused */
+				UDATA xlpObjectHeapSize = 0;
+				UDATA xlpObjectHeapPageType = 0;
+				BOOLEAN isXlpCodeCacheWarningsEnabled = FALSE; 
+				BOOLEAN isXlpCodeCacheErrorsEnabled = FALSE;
+				BOOLEAN isXlpObjectHeapWarningsEnabled = FALSE;
+				BOOLEAN isXlpObjectHeapErrorsEnabled = FALSE;
+				LargePageError lpParsingError = {NULL,		/* OptionErrorString */
+									 			 0,			/* OptionErrorStringSize */
+									 		     NULL,		/* MissingOptionString */
+									 			 false};	/* extraCommaWarning */
+
+				/* Parse -Xlp<Size> */
+				if (-1 != argXlp) {
+					/* Extract Memory Size */
+					IDATA parseError = GET_MEMORY_VALUE(argXlp, VMOPT_XLP, xlpSize);
+					if (OPTION_OK != parseError) {
+						/* Set Memory Parsing Error and Go to reporting area */
+						lpParsingError.
+					}
+				}
+				/* Call Sub-options parser for CodeCache if option is found. */
+				if (-1 != argXlpCodeCache) {
+					BOOLEAN parseError = xlpSubOptionsParser(vm, argXlpCodeCacheIndex, &xlpError, &xlpCodeCacheSize, &xlpCodeCachePageType, &xlpErrors, &xlpWarnings);
+					if (FALSE == parseError)
+						/* Go To Reporting Area */
+				}
+				/* Call Sub-options parser for ObjectHeap is option is found. */
+				if (-1 != argXlpObjectHeap) {
+					BOOLEAN rc = xlpSubOptionsParser(vm, argXlpObjectHeap, &xlpError, &xlpCodeCacheSize, &xlpCodeCachePageType, &xlpErrors, &xlpWarnings);
+					if (FALSE == rc)
+						/* Go To Reporting Area */
+				}
+				#else
+				/* TODO: Front Facing Parsing Vars */
+				IDATA argXlpEnableLargePagesCodeCache = -1;
+				IDATA argXlpEnableLargePagesObjectHeap = -1;
+
+				IDATA argXlpLargePageSizeInBytesCodeCache = -1;
+				IDATA xlpLargePageSizeCodeCache = -1;
+				IDATA argXlpLargePageSizeInBytesObjectHeap = -1;
+				IDATA xlpLargePageSizeObjectHeap = -1;
+
+				IDATA argXlpPageWarningsEnable = -1;
+				IDATA argXlpPageErrorsEnable = -1;
+
+//#if defined(J9ZOS390)
+				IDATA argXlpObjectHeapPageType = -1;
+				IDATA xlpObjectHeapPageType = -1;
+//#endif
+
+				/* Parse Xlp* */
+				{
+					IDATA argXlpSize = -1;
+					IDATA argXlpExact = -1;
+					IDATA argXlpCodeCache = -1;
+					IDATA argXlpObjectHeap = -1;
+					UDATA xlpSize = 0;
+					UDATA xlpCodeCacheSize = 0;
+					UDATA xlpCodeCachePageType = 0; /* Unused */
+					UDATA xlpObjectHeapSize = 0;
+					UDATA xlpObjectHeapPageType = 0;
+					BOOLEAN isXlpCodeCacheWarningsEnabled = FALSE; 
+					BOOLEAN isXlpCodeCacheErrorsEnabled = FALSE;
+					BOOLEAN isXlpObjectHeapWarningsEnabled = FALSE;
+					BOOLEAN isXlpObjectHeapErrorsEnabled = FALSE;
+//#if defined(J9ZOS390)
+					IDATA  codeCachePageType = -1;
+					IDATA  objectHeapPageType = -1;
+//#endif
+					/* Set Front Facing Vars */
+					argXlpEnableLargePagesCodeCache = OMR_MAX(argXlpSize, argXlpCodeCache);
+					argXlpEnableLargePagesObjectHeap = OMR_MAX(OMR_MAX(argXlpSize, argXlpObjectHeap), argXlpExact);
+
+					argXlpLargePageSizeInBytesCodeCache = OMR_MAX(argXlpCodeCache, argXlpSize);
+					xlpLargePageSizeCodeCache = (argXlpLargePageSizeInBytesCodeCache == argXlpCodeCache)? xlpCodeCacheSize : xlpSize;
+					argXlpLargePageSizeInBytesObjectHeap = OMR_MAX(argXlpObjectHeap, argXlpSize);
+					xlpLargePageSizeObjectHeap = (argXlpLargePageSizeInBytesObjectHeap == argXlpObjectHeap)? xlpObjectHeapSize : xlpSize;
+
+					// Assuming That Xlp:codecache, and -Xlp:objectheap both have specified warnings
+					argXlpPageWarningsEnable = OMR_MAX(argXlpCodeCache, argXlpObjectHeap);
+					// Assuming That Xlp:codecache, and -Xlp:objectheap both have specified errors
+					argXlpPageErrorsEnable = OMR_MAX(argXlpCodeCache, argXlpObjectHeap);
+
+					argXlpObjectHeapPageType = argXlpObjectHeap;
+					xlpObjectHeapPageType = objectHeapPageType;
+				}
+				#endif
+
+				/* -XX:[-/+]UseLargePages[/CodeCache/ObjectHeap] */
+				{
+					IDATA argUseLargePagesEnable = FIND_AND_CONSUME_ARG(EXACT_MATCH, "-XX:+UseLargePages", NULL);
+					IDATA argUseLargePagesDisable = FIND_AND_CONSUME_ARG(EXACT_MATCH, "-XX:-UseLargePages", NULL);
+					IDATA argUseLargePagesCodeCacheEnable = FIND_AND_CONSUME_ARG(EXACT_MATCH, "-XX:+UseLargePagesCodeCache", NULL);
+					IDATA argUseLargePagesCodeCacheDisable = FIND_AND_CONSUME_ARG(EXACT_MATCH, "-XX:-UseLargePagesCodeCache", NULL);
+					IDATA argUseLargePagesObjectHeapEnable = FIND_AND_CONSUME_ARG(EXACT_MATCH, "-XX:+UseLargePagesObjectHeap", NULL);
+					IDATA argUseLargePagesObjectHeapDisable = FIND_AND_CONSUME_ARG(EXACT_MATCH, "-XX:-UseLargePagesObjectHeap", NULL);
+
+					/* Simplify to Codecache, and ObjectHeap components */
+					argUseLargePagesCodeCacheEnable = OMR_MAX(argUseLargePagesCodeCacheEnable, argUseLargePagesEnable);
+					argUseLargePagesCodeCacheDisable = OMR_MAX(argUseLargePagesCodeCacheDisable, argUseLargePagesDisable);
+					argUseLargePagesObjectHeapEnable = OMR_MAX(argUseLargePagesObjectHeapEnable, argUseLargePagesEnable);
+					argUseLargePagesObjectHeapDisable = OMR_MAX(argUseLargePagesObjectHeapDisable, argUseLargePagesDisable);
+
+					/* Apply -Xlp mapping */
+					argUseLargePagesCodeCacheEnable = OMR_MAX(argUseLargePagesCodeCacheEnable, argXlpEnableLargePagesCodeCache);
+					argUseLargePagesObjectHeapEnable = OMR_MAX(argUseLargePagesObjectHeapEnable, argXlpEnableLargePagesObjectHeap);
+
+					/* Set Lp Status Flags */
+					lpInfo->isEnabledForCodeCache = argUseLargePagesCodeCacheEnable > argUseLargePagesCodeCacheDisable;
+					lpInfo->isEnabledForObjectHeap = argUseLargePagesObjectHeapEnable > argUseLargePagesObjectHeapDisable;
+
+					printf("DEBUG: isEnableForCodeCache:%d isEnableForObjectHeap:%d\n", lpInfo->isEnabledForCodeCache, lpInfo->isEnabledForObjectHeap);
+				}
+
+				/* -XX:LargePageInBytes[/CodeCache/ObjectHeap]=<size> */
+				{
+					IDATA argLargePageSizeInBytes = FIND_AND_CONSUME_ARG(STARTSWITH_MATCH, "-XX:LargePageSizeInBytes=", NULL);
+					IDATA argLargePageSizeInBytesCodeCache = FIND_AND_CONSUME_ARG(STARTSWITH_MATCH, "-XX:LargePageSizeInBytesCodeCache=", NULL);
+					IDATA argLargePageSizeInBytesObjectHeap = FIND_AND_CONSUME_ARG(STARTSWITH_MATCH, "-XX:LargePageSizeInBytesObjectHeap=", NULL);
+
+					lpInfo->pageSizeForCodeCache = 0;
+					lpInfo->pageSizeForObjectHeap = 0;
+
+					/* Parse -XX:LargePageSizeInBytes=<size> if used */
+					if (-1 != argLargePageSizeInBytes) {
+						/* Parse -XX:LargePageSizeInBytes=<Size> */
+						IDATA memorySize = 0;
+						char *lpOption = "-XX:LargePageSizeInBytes=";
+						IDATA parseError = GET_MEMORY_VALUE(argLargePageSizeInBytes, lpOption, memorySize);
+						if (OPTION_OK != parseError) {
+							if (OPTION_MALFORMED == parseError)
+								j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_VM_OPTION_MALFORMED, lpOption);
+							j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_VM_OPTION_OVERFLOW, lpOption);
+						}
+						lpInfo->pageSizeForCodeCache = memorySize;
+						lpInfo->pageSizeForObjectHeap = memorySize;
+					}
+
+					/* CodeCache */
+					
+					argLargePageSizeInBytesCodeCache = OMR_MAX(argLargePageSizeInBytesCodeCache, argXlpLargePageSizeInBytesCodeCache);
+					if (argLargePageSizeInBytesCodeCache > argLargePageSizeInBytes) {
+						if (argLargePageSizeInBytesCodeCache == argXlpLargePageSizeInBytesCodeCache) {
+							lpInfo->pageSizeForCodeCache = xlpLargePageSizeCodeCache;
+						}
+						else {
+							/* Parse -XX:LargePageSizeInBytesCodeCache=<size> */
+							IDATA memorySize = 0;
+							char *lpOption = "-XX:LargePageSizeInBytesCodeCache=";
+							IDATA parseError = GET_MEMORY_VALUE(argLargePageSizeInBytesCodeCache, lpOption, memorySize);
+							if (OPTION_OK != parseError) {
+								if (OPTION_MALFORMED == parseError)
+									j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_VM_OPTION_MALFORMED, lpOption);
+								j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_VM_OPTION_OVERFLOW, lpOption);
+							}
+							lpInfo->pageSizeForCodeCache = memorySize;
+						}
+					}
+
+					/* ObjectHeap */
+					argLargePageSizeInBytesObjectHeap = OMR_MAX(argLargePageSizeInBytes, argXlpLargePageSizeInBytesObjectHeap);
+					if (argLargePageSizeInBytesObjectHeap > argLargePageSizeInBytes) {
+						if (argLargePageSizeInBytesObjectHeap == argXlpLargePageSizeInBytesObjectHeap)
+							lpInfo->pageSizeForObjectHeap = xlpLargePageSizeObjectHeap;
+						else {
+							/* Parse -XX:LargePageSizeInBytesObjectHeap=<size> */
+							IDATA memorySize = 0;
+							char *lpOption = "-XX:LargePageSizeInBytesObjectHeap=";
+							IDATA parseError = GET_MEMORY_VALUE(argLargePageSizeInBytesObjectHeap, lpOption, memorySize);
+							if (OPTION_OK != parseError) {
+								if (OPTION_MALFORMED == parseError)
+									j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_VM_OPTION_MALFORMED, lpOption);
+								j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_VM_OPTION_OVERFLOW, lpOption);
+							}
+							lpInfo->pageSizeForObjectHeap = memorySize;
+						}
+					}
+
+					printf("DEBUG: pageSizeForCodeCache:%ld pageSizeForObjectHeap:%ld\n", lpInfo->pageSizeForCodeCache, lpInfo->pageSizeForObjectHeap);
+				}
+				
+				/* -XX:[+/-]LargePageWarnings and -XX:[+/-]LargePageErrors */
+				{
+					IDATA argLargePageWarningsEnable = FIND_AND_CONSUME_ARG(EXACT_MATCH, "-XX:+LargePageWarnings", NULL);
+					IDATA argLargePageWarningsDisable = FIND_AND_CONSUME_ARG(EXACT_MATCH, "-XX:-LargePageWarnings", NULL);
+					IDATA argLargePageErrorsEnable = FIND_AND_CONSUME_ARG(EXACT_MATCH, "-XX:+LargePageErrors", NULL);
+					IDATA argLargePageErrorsDisable = FIND_AND_CONSUME_ARG(EXACT_MATCH, "-XX:-LargePageErrors", NULL);
+					BOOLEAN isWarningsEnabled = OMR_MAX(argLargePageWarningsEnable, argXlpPageWarningsEnable) > argLargePageWarningsDisable;
+					BOOLEAN isErrorsEnabled = OMR_MAX(argLargePageErrorsEnable, argXlpPageErrorsEnable) > argLargePageErrorsDisable;
+					/* Set Caution Level */
+					if (isErrorsEnabled)
+						lpInfo->lpCautionLevel = J9CautionError;
+					else if (isWarningsEnabled)
+						lpInfo->lpCautionLevel = J9CautionWarning;
+					else
+						lpInfo->lpCautionLevel = J9CautionUnset;
+
+					printf("DEBUG: lpCautionLevel:%d\n", lpInfo->lpCautionLevel);
+				}
+
+//#if defined(J9ZOS390)
+				/* Z/OS Only. PageType */
+				{
+					IDATA argPageType = FIND_AND_CONSUME_ARG(STARTSWITH_MATCH, "-XX:zOSLargePagesObjectHeap=", NULL);
+
+					argPageType = OMR_MAX(argPageType, argXlpObjectHeapPageType);
+					if (-1 != argPageType) {
+						if (argPageType == argXlpObjectHeapPageType) {
+							lpInfo->pageTypeForObjectHeap = xlpObjectHeapPageType;
+						} else {
+							/* Parse -XX:zOsLargePageObjectHeap=<page type> */
+							char* pageType;
+							IDATA parseError = GET_OPTION_VALUE(argPageType, '=', &pageType);
+							if (OPTION_OK != parseError) {
+								j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_VM_OPTION_MALFORMED, "-XX:zOSLargePagesObjectHeap=");
+							}
+							if (0 == strcmp(pageType, "pageable")) {
+								lpInfo->pageTypeForObjectHeap = J9PORT_VMEM_PAGE_FLAG_PAGEABLE;
+							} else if (0 == strcmp(pageType, "nonpageable")) {
+								lpInfo->pageTypeForObjectHeap = J9PORT_VMEM_PAGE_FLAG_FIXED;
+							} else {
+								j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_VM_OPTION_MALFORMED, "-XX:zOSLargePagesObjectHeap=");
+							}
+						}
+					}
+					printf("DEBUG: pagetypeForObjectHeap:%ld\n", lpInfo->pageTypeForObjectHeap);
+				}
+//#endif
+
+				/* Warn or Error that large pages are enabled, but size was not specified. */
+				if ((J9CautionUnset != lpInfo->lpCautionLevel) && 
+					(-1 != lpInfo->isEnabledForCodeCache && 0 == lpInfo->pageSizeForCodeCache) || 
+				    (-1 != lpInfo->isEnabledForObjectHeap && 0 == lpInfo->pageSizeForObjectHeap)) {
+						j9nls_printf(PORTLIB, (J9CautionError == lpInfo->lpCautionLevel) ? J9NLS_ERROR : J9NLS_WARNING, J9NLS_VM_LP_ENABLED_SIZE_NOT_SET);
+				}
+
+				/* Display a warning about Xlp deprecation if Any Xlp option is used. */
+				if (-1 != argXlpEnableLargePagesCodeCache || -1 != argXlpEnableLargePagesObjectHeap) {
+					j9nls_printf(PORTLIB, J9NLS_WARNING, J9NLS_VM_XLP_DEPRECATED);
+				}
+
+				printf("Finished Central Parsing\n");
+
+			}
 
 			/* Parse options related to idle tuning */
 			{
@@ -7319,3 +7601,215 @@ parseGlrOption(J9JavaVM* jvm, char* option)
 
 	return JNI_ERR;
 }
+
+#if 0
+/**
+ * Parse sub options for -Xlp:xxxxx:
+ */
+LargePageError
+xlpSubOptionsParser(J9JavaVM *vm, IDATA xlpIndex, LargePageError *xlpError, UDATA *requestedPageSize, UDATA *requestedPageFlags, BOOLEAN *strict, BOOLEAN *warn)
+{
+	/* -Xlp:objectheap: found and it is most right option, so it is not overwritten by -Xlp<size> */
+	char *optionsString = NULL;
+	char *scan_limit = NULL;
+
+	/* start parsing with option */
+	parsingStates parsingState = PARSING_FIRST_OPTION;
+	UDATA optionNumber = 1;
+	char *previousOption = NULL;
+	char *errorString = NULL;
+
+	UDATA pageSizeHowMany = 0;
+#if	defined(J9ZOS390)
+	UDATA pageableHowMany = 0;
+	UDATA pageableOptionNumber = 0;
+	UDATA nonPageableHowMany = 0;
+	UDATA nonPageableOptionNumber = 0;
+#endif /* defined(J9ZOS390) */
+
+	/* Reset error state from parsing of previous -Xlp<size> option */
+	XlpErrorState xlpErrorState = XLP_NO_ERROR;
+
+	xlpError->xlpOptionErrorString = NULL;
+	xlpError->xlpOptionErrorStringSize = 0;
+	xlpError->xlpMissingOptionString = NULL;
+	xlpError->extraCommaWarning  = FALSE;
+
+	/* Get pointer to entire option */
+	GET_OPTION_OPTION(xlpIndex, ':', ':', &optionsString);
+
+	/* optionsString can not be NULL here, though it may point to null ('\0') character */
+	scan_limit = optionsString + strlen(optionsString);
+
+	/*
+	 * parsing -Xlp:objectheap: for options
+	 *
+	 * reporting general parsing problems (bad formed and unknown options)
+	 * recognize cases where extra commas are entered to print warning after if necessary
+	 */
+
+	while (optionsString < scan_limit) {
+		if (try_scan(&optionsString, ",")) {
+			/* Comma separator is discovered */
+			switch (parsingState) {
+			case PARSING_FIRST_OPTION:
+				/* leading comma - ignored but warning required */
+				xlpError->extraCommaWarning = TRUE;
+				parsingState = PARSING_OPTION;
+				break;
+			case PARSING_OPTION:
+				/* more then one comma - ignored but warning required */
+				xlpError->extraCommaWarning = TRUE;
+				break;
+			case PARSING_COMMA:
+				/* expecting for comma here, next should be an option*/
+				parsingState = PARSING_OPTION;
+				/* next option number */
+				optionNumber += 1;
+				break;
+			case PARSING_ERROR:
+			default:
+				/* must be unreachable states */
+				Assert_MM_unreachable();
+				break;
+			}
+		} else {
+			/* Comma separator has not been found. so */
+			switch (parsingState) {
+			case PARSING_FIRST_OPTION:
+				/* still looking for parsing of first option - nothing to do */
+				parsingState = PARSING_OPTION;
+				break;
+			case PARSING_OPTION:
+				/* Can not recognize an option case */
+				Assert_MM_true(previousOption == optionsString);
+				errorString = optionsString;
+				parsingState = PARSING_ERROR;
+				break;
+			case PARSING_COMMA:
+				/* can not find comma after option - so this is something unrecognizable at the end of known option */
+				errorString = previousOption;
+				parsingState = PARSING_ERROR;
+				break;
+			case PARSING_ERROR:
+			default:
+				/* must be unreachable states */
+				Assert_MM_unreachable();
+				break;
+			}
+		}
+
+		if (PARSING_ERROR == parsingState) {
+			Assert_MM_true(NULL != errorString);
+
+			xlpErrorState =  XLP_PARAMETER_NOT_RECOGNIZED;
+			xlpError->xlpOptionErrorString = errorString;
+
+			/* try to find comma to isolate unrecognized option */
+			char *commaLocation = strchr(errorString, ',');
+			if (NULL != commaLocation) {
+				/* comma found */
+				xlpError->xlpOptionErrorStringSize = (size_t)(commaLocation - errorString);
+			} else {
+				/* comma not found - print to the end of the string */
+				xlpError->xlpOptionErrorStringSize = strlen(errorString);
+			}
+
+			return xlpErrorState;
+		}
+
+		/* check that something was parsed or previousOption still NULL, otherwise we are in dead loop */
+		Assert_MM_true((NULL == previousOption) || (previousOption != optionsString));
+
+		previousOption = optionsString;
+
+		if (try_scan(&optionsString, "pagesize=")) {
+			/* try to get memory value */
+			if (!scan_udata_memory_size_helper(vm, &optionsString, requestedPageSize, "pagesize=")) {
+				/* size is not formed properly */
+				xlpErrorState = XLP_MEM_NAN;
+				return xlpErrorState;
+			}
+
+			pageSizeHowMany += 1;
+
+			parsingState = PARSING_COMMA;
+		} else if (try_scan(&optionsString, "pageable")) {
+#if	defined(J9ZOS390)
+			pageableHowMany += 1;
+			pageableOptionNumber = optionNumber;
+#endif /* defined(J9ZOS390) */
+			parsingState = PARSING_COMMA;
+		} else if (try_scan(&optionsString, "nonpageable")) {
+#if	defined(J9ZOS390)
+			nonPageableHowMany += 1;
+			nonPageableOptionNumber = optionNumber;
+#endif /* defined(J9ZOS390) */
+			parsingState = PARSING_COMMA;
+		} else if ((NULL != strict) && try_scan(&optionsString, "strict")) {
+			*strict = TRUE;;
+			parsingState = PARSING_COMMA;
+		} else if ((NULL != warn) && try_scan(&optionsString, "warn")) {
+			*warn = FALSE;
+			parsingState = PARSING_COMMA;
+		}
+	}
+
+	/*
+	 * post-parse check for trailing comma(s)
+	 */
+	switch (parsingState) {
+	/* if loop ended in one of these two states extra comma warning required */
+	case PARSING_FIRST_OPTION:
+	case PARSING_OPTION:
+		/* trailing comma(s) or comma(s) alone */
+		xlpError->extraCommaWarning = TRUE;
+		break;
+	case PARSING_COMMA:
+		/* loop ended at comma search state - do nothing */
+		break;
+	case PARSING_ERROR:
+	default:
+		/* must be unreachable states */
+		Assert_MM_unreachable();
+		break;
+	}
+
+	/* --- analyze correctness of entered options --- */
+	/*
+	 * pagesize = <size>
+	 *  - this options must be specified for all platforms
+	 */
+	if (0 == pageSizeHowMany) {
+		/* error: pagesize= must be specified */
+		xlpErrorState = XLP_INCOMPLETE_OPTION;
+		xlpError->xlpOptionErrorString = "-Xlp:objectheap:";
+		xlpError->xlpMissingOptionString = "pagesize=";
+		return xlpErrorState;
+	}
+
+#if defined(J9ZOS390)
+	/*
+	 *  [non]pageable
+	 *  - this option must be specified for Z platforms
+	 */
+	if ((0 == pageableHowMany) && (0 == nonPageableHowMany)) {
+		/* error: [non]pageable not found */
+		xlpErrorState = XLP_INCOMPLETE_OPTION;
+		xlpError->xlpOptionErrorString = "-Xlp:objectheap:";
+		xlpError->xlpMissingOptionString = "[non]pageable";
+		return xlpErrorState;
+	}
+
+	if (pageableOptionNumber > nonPageableOptionNumber) {
+		/* pageable is most right */
+		*requestedPageFlags = J9PORT_VMEM_PAGE_FLAG_PAGEABLE;
+	} else {
+		/* nonpageable is most right */
+		*requestedPageFlags = J9PORT_VMEM_PAGE_FLAG_FIXED;
+	}
+#endif /* defined(J9ZOS390) */
+
+	return xlpErrorState;
+}
+#endif
