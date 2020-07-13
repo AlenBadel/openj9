@@ -5245,6 +5245,7 @@ typedef struct J9JavaVM {
 	U_32 minimumReservedRatio;
 	U_32 cancelAbsoluteThreshold;
 	U_32 minimumLearningRatio;
+	J9LargePageOptionsInfo largePageOptionInfo;
 } J9JavaVM;
 
 #define J9VM_PHASE_NOT_STARTUP  2
@@ -5543,6 +5544,21 @@ typedef struct J9CInterpreterStackFrame {
 #error Unknown architecture
 #endif /* J9VM_ARCH_X86 */
 } J9CInterpreterStackFrame;
+
+typedef enum J9LargePageCautionLevel {
+	J9CautionUnset,
+	J9CautionWarning,
+	J9CautionError
+} J9LargePageCautionLevel;
+
+typedef struct J9LargePageOptionsInfo {
+	BOOLEAN isEnabledForCodeCache; /* Enabled LP on CodeCache */
+	BOOLEAN isEnabledForObjectHeap; /* Enabled LP on ObjectHeap */
+	UDATA pageSizeForCodeCache; /* Specified LP size on CodeCache */
+	UDATA pageSizeForObjectHeap; /* Specified LP size on ObjectHeap */
+	J9LargePageCautionLevel lpCautionLevel; /* Specify if Warnings, Errors, or Neither have been enabled */
+	UDATA pageTypeForObjectHeap; /* Z/OS Only: Specify if user desires a specific page type on ObjectHeap */
+} J9LargePageOptionsInfo;
 
 #include "objectreferencesmacros_define.inc"
 

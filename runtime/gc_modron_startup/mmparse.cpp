@@ -667,6 +667,7 @@ gcParseXlpOption(J9JavaVM *vm)
 	if (XLP_NO_ERROR != xlpErrorState) {
 		goto _reportXlpError;
 	}
+	//AB:
 
 	/* If a valid -Xlp<size> or -Xlp:objectheap:pagesize=<size> is present, check if the requested page size is supported */
 	/* We don't need to check error state here - we did goto for all errors */

@@ -1690,6 +1690,7 @@ J9::Options::fePreProcess(void * base)
          {
          // GET_MEMORY_VALUE macro casts it's second parameter to (char**)&, so a pointer to the option string is passed rather than the string literal.
          char *lpOption = "-Xlp";
+         IDATA returnCode = OPTION_OK;
          GET_MEMORY_VALUE(xlpIndex, lpOption, requestedLargeCodePageSize);
          }
       

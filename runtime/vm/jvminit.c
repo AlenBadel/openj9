@@ -1900,6 +1900,127 @@ IDATA VMInitStages(J9JavaVM *vm, IDATA stage, void* reserved) {
 			}
 #endif /* defined(AIXPPC) */
 
+			/* Parse Large page options */
+			{
+				J9LargePageOptionsInfo* lpInfo = &(vm->largePageOptionInfo);
+				JavaVMInitArgs *args = vm->vmArgsArray->actualVMArgs;
+				BOOLEAN isWarningsEnabled = FALSE;
+				BOOLEAN isErrorsEnabled = FALSE;
+				BOOLEAN isXlpUsed = FALSE;
+
+				/* Set Default Values */
+				lpInfo->pageTypeForObjectHeap = J9PORT_VMEM_PAGE_FLAG_PAGEABLE_PREFERABLE;
+				lpInfo->lpCautionLevel = J9CautionUnset;
+				/* Iterate through vm args, and pattern match for each large page option */
+				for (int i = 0; i < args->nOptions; i++) {
+					char* optionString = args->options[i].optionString;
+
+					if (0 == strcmp(optionString, '-XX:+UseLargePages')) {
+						lpInfo->isEnabledForCodeCache = TRUE;
+						lpInfo->isEnabledForObjectHeap = TRUE;
+					}
+					else if (0 == strcmp(optionString, '-XX:-UseLargePages')) {
+						lpInfo->isEnabledForCodeCache = FALSE;
+						lpInfo->isEnabledForObjectHeap = FALSE;
+					}
+					else if (0 == strcmp(optionString, '-XX:+UseLargePagesCodeCache')) {
+						lpInfo->isEnabledForCodeCache = TRUE;
+					}
+					else if (0 == strcmp(optionString, '-XX:-UseLargePagesCodeCache')) {
+						lpInfo->isEnabledForCodeCache = FALSE;
+					}
+					else if (0 == strcmp(optionString, '-XX:+UseLargePagesObjectHeap')) {
+						lpInfo->isEnabledForObjectHeap = TRUE;
+					}
+					else if (0 == strcmp(optionString, '-XX:-UseLargePagesObjectHeap')) {
+						lpInfo->isEnabledForObjectHeap = FALSE;
+					}
+					else if (NULL != strstr(optionString, '-XX:LargePageSizeInBytes=')) {
+						IDATA value = 0;
+						IDATA returnCode = OPTION_OK;
+						returnCode = GET_MEMORY_VALUE(i, '-XX:LargePageSizeInBytes=', value);
+						if (OPTION_OK != returnCode) {
+							/* TODO: Handle Error for invalid Option/value */
+						}
+						lpInfo->pageSizeForCodeCache = value;
+						lpInfo->pageSizeForObjectHeap = value;
+					}
+					else if (NULL != strstr(optionString, '-XX:LargePageSizeInBytesCodeCache=')) {
+						IDATA value = 0;
+						IDATA returnCode = OPTION_OK;
+						returnCode = GET_MEMORY_VALUE(i, '-XX:LargePageSizeInBytesCodeCache=', value);
+						if (OPTION_OK != returnCode) {
+							/* TODO: Handle Error for invalid Option/value */
+						}
+						lpInfo->pageSizeForCodeCache = value;
+					}
+					else if (NULL != strstr(optionString, '-XX:LargePageSizeInBytesObjectHeap=')) {
+						IDATA value = 0;
+						IDATA returnCode = OPTION_OK;
+						returnCode = GET_MEMORY_VALUE(i, '-XX:LargePageSizeInBytesObjectHeap=', value);
+						if (OPTION_OK != returnCode) {
+							/* TODO: Handle Error for invalid Option/value */
+						}
+						lpInfo->pageSizeForObjectHeap = value;
+					}
+					else if (NULL != strstr(optionString, '-XX:zOSLargePagesObjectHeap=')) {
+						char* optionValue;
+						IDATA returnCode = OPTION_OK;
+						returnCode = GET_OPTION_VALUE(i, '=', &optionValue);
+						if (OPTION_OK != returnCode) {
+							/* TODO: Handle Error for Invalid Option/Value */
+						}
+						if (0 == strcmp(optionValue, 'pageable')) {
+							lpInfo->pageTypeForObjectHeap = J9PORT_VMEM_PAGE_FLAG_PAGEABLE;
+						}
+						else if (0 == strcmp(optionValue, 'nonpageable')) {
+							lpInfo->pageTypeForObjectHeap = J9PORT_VMEM_PAGE_FLAG_FIXED;
+						}
+						else {
+							/* TODO: Handle Error for invalid Value */
+						}
+					}
+					else if (0 == strcmp(optionString, '-XX:+LargePageWarnings')) {
+						isWarningsEnabled = TRUE;
+					}
+					else if (0 == strcmp(optionString, '-XX:-LargePageWarnings')) {
+						isWarningsEnabled = FALSE;
+					}
+					else if (0 == strcmp(optionString, '-XX:+LargePageErrors')) {
+						isErrorsEnabled = TRUE;
+					}
+					else if (0 == strcmp(optionString, '-XX:-LargePageErrors')) {
+						isErrorsEnabled = FALSE;
+					}
+					else if (NULL != strstr(optionString, '-Xlp')) {
+						
+						// -Xlp:codecache
+						if (NULL != strstr(optionString, '-Xlp:codecache:')) {
+
+						}
+						// -Xlp:objectheap
+						else if (NULL != strstr(optionString, '-Xlp:objectheap')) {
+
+						}
+						// -Xlp
+						else if (0 == strcmp(optionValue, '-Xlp')) {
+
+						}
+						// -Xlp<Size>
+						else {
+
+						}
+
+						isXlpUsed = TRUE;
+
+					}
+				}
+
+				// TODO: Set Error/Warnings
+				// TODO: Provide XLP 
+
+			}
+
 			/* Parse options related to idle tuning */
 			{
 				IDATA argIndexGcOnIdleEnable = FIND_AND_CONSUME_ARG(EXACT_MATCH, VMOPT_XXIDLETUNINGGCONIDLEENABLE, NULL);
