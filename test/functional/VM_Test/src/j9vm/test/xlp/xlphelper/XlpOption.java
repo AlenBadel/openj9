@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2001, 2012 IBM Corp. and others
+ * Copyright (c) 2001, 2020 IBM Corp. and others
  *
  * This program and the accompanying materials are made available under
  * the terms of the Eclipse Public License 2.0 which accompanies this
@@ -20,7 +20,11 @@
  * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0 OR GPL-2.0 WITH Classpath-exception-2.0 OR LicenseRef-GPL-2.0 WITH Assembly-exception
  *******************************************************************************/
 
-package j9vm.test.xlphelper;
+package j9vm.test.xlp.xlphelper;
+
+import java.io.*;
+import java.util.*;
+
 
 public class XlpOption {
 	
@@ -33,35 +37,44 @@ public class XlpOption {
 	/* pageSize and pageType are used to check if warning message about using a different page size/type should be printed by JVM */
 	private long pageSize = 0;
 	private	String pageType = XlpUtil.XLP_PAGE_TYPE_NOT_USED;
+	private boolean isXlpEnabled = false;
+	Pair<Long, String> expectedPage = null;
 
 	public XlpOption(String option) {
 		this.option = option;
 	}
-	
-	public XlpOption(String option, boolean canFail) {
+
+	public String toString() {
+		return "option:" + option +
+			   " failIfLargePageSizeNotSupported:" + failIfLargePageSizeNotSupported +
+			   " pageSize:" + pageSize +
+			   " pageType:" + pageType;
+	}
+
+	public XlpOption(String option, boolean isXlpEnabled) {
 		this(option);
-		failIfLargePageSizeNotSupported = canFail;
+		this.isXlpEnabled = isXlpEnabled;
 	}
 	
-	public XlpOption(String option, long pageSize, String pageType, boolean canFail) {
-		this(option, canFail);
-		this.pageSize = pageSize;
-		this.pageType = pageType;
+	public XlpOption(String option, long pageSize, String pageType) {
+		this(option);
+		this.expectedPage = new Pair<Long, String>(pageSize, pageType);
+		this.isXlpEnabled = true;
 	}
 	
 	public String getOption() {
 		return option;
 	}
-	
+
 	public boolean canFail() {
 		return failIfLargePageSizeNotSupported;
 	}
-	
-	public long getPageSize() {
-		return pageSize;
+
+	public Pair<Long, String> getExpectedPage() {
+		return this.expectedPage;
 	}
-	
-	public String getPageType() {
-		return pageType;
+
+	public boolean getXlpState() {
+		return isXlpEnabled;
 	}
 }

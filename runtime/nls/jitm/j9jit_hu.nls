@@ -256,15 +256,6 @@ J9NLS_JIT_OUT_OF_MEMORY.system_action=TODO
 J9NLS_JIT_OUT_OF_MEMORY.user_response=TODO
 # END NON-TRANSLATABLE
 
-J9NLS_JIT_OPTIONS_XLP_UNRECOGNIZED_OPTION=A rendszerkonfigur\u00e1ci\u00f3 nem t\u00e1mogatja a(z) '%.*s' param\u00e9ter haszn\u00e1lat\u00e1t az '-Xlp' be\u00e1ll\u00edt\u00e1sban
-# START NON-TRANSLATABLE
-J9NLS_JIT_OPTIONS_XLP_UNRECOGNIZED_OPTION.explanation=Specified parameter is not recognized in -Xlp option
-J9NLS_JIT_OPTIONS_XLP_UNRECOGNIZED_OPTION.system_action=The JVM will terminate
-J9NLS_JIT_OPTIONS_XLP_UNRECOGNIZED_OPTION.user_response=Remove the unrecognized parameter from -Xlp option
-J9NLS_JIT_OPTIONS_XLP_UNRECOGNIZED_OPTION.sample_input_1=3
-J9NLS_JIT_OPTIONS_XLP_UNRECOGNIZED_OPTION.sample_input_2=abc
-# END NON-TRANSLATABLE
-
 J9NLS_JIT_OPTIONS_MUST_BE_NUMBER=%s ut\u00e1n sz\u00e1mnak kell k\u00f6vetkeznie
 # START NON-TRANSLATABLE
 J9NLS_JIT_OPTIONS_MUST_BE_NUMBER.explanation=The specified option must be immediately followed by a number
@@ -287,22 +278,6 @@ J9NLS_JIT_OPTIONS_INCORRECT_MEMORY_SIZE.explanation=Value specified for the opti
 J9NLS_JIT_OPTIONS_INCORRECT_MEMORY_SIZE.system_action=The JVM will terminate
 J9NLS_JIT_OPTIONS_INCORRECT_MEMORY_SIZE.user_response=Correct the option
 J9NLS_JIT_OPTIONS_INCORRECT_MEMORY_SIZE.sample_input_1=-Xlp:codecache:pagesize=<size>
-# END NON-TRANSLATABLE
-
-J9NLS_JIT_OPTIONS_XLP_INCOMPLETE_OPTION=A(z) '%1$s' be\u00e1ll\u00edt\u00e1s nem teljes, meg kell adni a(z) '%2$s' param\u00e9tert.
-# START NON-TRANSLATABLE
-J9NLS_JIT_OPTIONS_XLP_INCOMPLETE_OPTION.explanation=Specified option is not complete, it requires more parameters
-J9NLS_JIT_OPTIONS_XLP_INCOMPLETE_OPTION.system_action=The JVM will terminate
-J9NLS_JIT_OPTIONS_XLP_INCOMPLETE_OPTION.user_response=Specify all the required parameter for -Xlp option
-J9NLS_JIT_OPTIONS_XLP_INCOMPLETE_OPTION.sample_input_1=-Xlp:codecache:
-J9NLS_JIT_OPTIONS_XLP_INCOMPLETE_OPTION.sample_input_2=[non]pageable
-# END NON-TRANSLATABLE
-
-J9NLS_JIT_OPTIONS_XLP_EXTRA_COMMA=Extra vessz\u0151 karakterek ker\u00fcltek felt\u00e9rk\u00e9pez\u00e9sre az '-Xlp' be\u00e1ll\u00edt\u00e1sban - figyelmen k\u00edv\u00fcl maradnak
-# START NON-TRANSLATABLE
-J9NLS_JIT_OPTIONS_XLP_EXTRA_COMMA.explanation=Extra comma characters are discovered in '-Xlp' option
-J9NLS_JIT_OPTIONS_XLP_EXTRA_COMMA.system_action=The JVM will ignore extra comma characters
-J9NLS_JIT_OPTIONS_XLP_EXTRA_COMMA.user_response=Remove extra commas from -Xlp option
 # END NON-TRANSLATABLE
 
 J9NLS_JIT_OPTIONS_LARGE_PAGE_SIZE_NOT_SUPPORTED=A nagy lapm\u00e9ret (%1$zu%2$s) nem t\u00e1mogatott lapm\u00e9ret JIT k\u00f3dgyors\u00edt\u00f3t\u00e1r eset\u00e9n; %3$zu%4$s ker\u00fcl helyette felhaszn\u00e1l\u00e1sra

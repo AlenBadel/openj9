@@ -27,29 +27,6 @@ import java.util.Map;
 import java.lang.reflect.Method;
 
 public class Runner {
-	
-	protected enum OSName {
-		AIX,
-		LINUX,
-		WINDOWS,
-		ZOS,
-		UNKNOWN
-	}
-	
-	protected enum OSArch {
-		PPC,
-		S390X,
-		X86,
-		UNKNOWN
-	}
-	
-	protected enum AddrMode {
-		BIT31,
-		BIT32,
-		BIT64,
-		UNKNOWN
-	}
-	
 	public static final String systemPropertyPrefix = "j9vm.";
 
 	protected String className;
@@ -59,61 +36,9 @@ public class Runner {
 	protected String javaVersion;
 	protected OutputCollector inCollector;
 	protected OutputCollector errCollector;
-	protected OSName osName = OSName.UNKNOWN;
-	protected OSArch osArch = OSArch.UNKNOWN;
-	protected AddrMode addrMode = AddrMode.UNKNOWN;
 
 	private final String heapOptions = "-Xms64m -Xmx64m";
 
-	private void setPlatform() {
-		
-		String OSSpec = System.getProperty("os.name").toLowerCase();
-		if (OSSpec != null) {
-			/* Get OS from the spec string */
-			if (OSSpec.contains("aix")) {
-				osName = OSName.AIX;
-			} else if (OSSpec.contains("linux")) {
-				osName = OSName.LINUX;
-			} else if (OSSpec.contains("windows")) {
-				osName = OSName.WINDOWS;
-			} else if (OSSpec.contains("z/os")) {
-				osName = OSName.ZOS;
-			} else {
-				System.out.println("Runner couldn't determine underlying OS. Got OS Name:" + OSSpec);
-				osName = OSName.UNKNOWN;
-			}
-		}
-		String archSpec = System.getProperty("os.arch").toLowerCase();
-		if (archSpec != null) {
-			/* Get arch from spec string */
-			if (archSpec.contains("ppc")) {
-				osArch = OSArch.PPC;
-			} else if (archSpec.contains("s390")) {
-				osArch = OSArch.S390X;
-			} else if (archSpec.contains("amd64") || archSpec.contains("x86")) {
-				osArch = OSArch.X86;
-			} else {
-				System.out.println("Runner couldn't determine underlying architecture. Got OS Arch:" + archSpec);
-				osArch = OSArch.UNKNOWN;
-			}
-		}
-
-		String addressingMode = System.getProperty("sun.arch.data.model");
-		if (addressingMode != null) {
-			/* Get address mode. S390 31-Bit addressing mode should return 32. */
-			if ((osArch == OSArch.S390X) && (addressingMode.contains("32"))) {
-				addrMode = AddrMode.BIT31;
-			} else if (addressingMode.contains("32")) {
-				addrMode = AddrMode.BIT32;
-			} else if (addressingMode.contains("64")) {
-				addrMode = AddrMode.BIT64;
-			} else {
-				System.out.println("Runner couldn't determine underlying addressing mode. Got addressingMode:" + addressingMode);
-				addrMode = AddrMode.UNKNOWN;
-			}
-		}
-	}
-	
 	public Runner(String className, String exeName, String bootClassPath, String userClassPath, String javaVersion)  {
 		super();
 		this.className = className;
@@ -121,7 +46,6 @@ public class Runner {
 		this.bootClassPath = bootClassPath;
 		this.userClassPath = userClassPath;
 		this.javaVersion = javaVersion;
-		setPlatform();
 	}
 
 	public String getBootClassPathOption () {

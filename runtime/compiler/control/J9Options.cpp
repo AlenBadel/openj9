@@ -272,15 +272,6 @@ bool J9::Options::_aggressiveLockReservation = false;
 //
 //************************************************************************
 
-// Helper routines to parse and format -Xlp:codecache Options
-enum TR_XlpCodeCacheOptions
-   {
-   XLPCC_PARSING_FIRST_OPTION,
-   XLPCC_PARSING_OPTION,
-   XLPCC_PARSING_COMMA,
-   XLPCC_PARSING_ERROR
-   };
-
 // Returns large page flag type string for error handling.
 char *
 getLargePageTypeString(UDATA pageFlags)
@@ -1452,292 +1443,75 @@ J9::Options::fePreProcess(void * base)
       {
       parsedXlpCodeCacheOptions = true;
 
-      UDATA requestedLargeCodePageSize = 0;
-      UDATA requestedLargeCodePageFlags = J9PORT_VMEM_PAGE_FLAG_NOT_USED;
       UDATA largePageSize = 0;
       UDATA largePageFlags = 0;
-      int32_t xlpCodeCacheIndex = FIND_ARG_IN_VMARGS(STARTSWITH_MATCH, "-Xlp:codecache:", NULL);
-      int32_t xlpIndex = FIND_ARG_IN_VMARGS(EXACT_MEMORY_MATCH, "-Xlp", NULL);
+      J9LargePageOptionsInfo *lpInfo = &(vm->largePageOptionInfo);
 
-      // Parse -Xlp:codecache:pagesize=<size> as the right most option
-      if (xlpCodeCacheIndex > xlpIndex)
+      printf("Starting CodeCache Configuraiton\n");
+
+      if (lpInfo->isEnabledForCodeCache) 
          {
-         TR_XlpCodeCacheOptions parsingState = XLPCC_PARSING_FIRST_OPTION;
-         UDATA optionNumber = 1;
-         bool extraCommaWarning = false;
-         char *previousOption = NULL;
-         char *errorString = NULL;
-
-         UDATA pageSizeHowMany = 0;
-         UDATA pageSizeOptionNumber = 0;
-         UDATA pageableHowMany = 0;
-         UDATA pageableOptionNumber = 0;
-         UDATA nonPageableHowMany = 0;
-         UDATA nonPageableOptionNumber = 0;
-
-         char *optionsString = NULL;
-
-         // Get Pointer to entire "-Xlp:codecache:" options string
-         GET_OPTION_OPTION(xlpCodeCacheIndex, ':', ':', &optionsString);
-
-         // optionsString can not be NULL here, though it may point to null ('\0') character
-         char *scanLimit = optionsString + strlen(optionsString);
-
-         // Parse -Xlp:codecache:pagesize=<size> option.
-         // The proper formed -Xlp:codecache: options include
-         //      For X and zLinux platforms:
-         //              -Xlp:codecache:pagesize=<size> or
-         //              -Xlp:codecache:pagesize=<size>,pageable or
-         //              -Xlp:codecache:pagesize=<size>,nonpageable
-         //      For zOS platforms
-         //              -Xlp:codecache:pagesize=<size>,pageable or
-         //              -Xlp:codecache:pagesize=<size>,nonpageable
-         while (optionsString < scanLimit)
+         // Requesting the default large page configured on the system.
+         j9vmem_default_large_page_size_ex(J9PORT_VMEM_MEMORY_MODE_EXECUTE, &largePageSize, &largePageFlags);
+         if (0 == largePageSize) 
             {
-            if (try_scan(&optionsString, ","))
+            j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_JIT_OPTIONS_SYSTEM_CONFIG_OPTION_NOT_SUPPORTED, "-XX:+UseLargePagesCodeCache");
+            }
+
+         // Set Large Page Size if requested
+         if (0 != lpInfo->pageSizeForCodeCache)
+            {
+            // Verify requested large page size
+            UDATA requestedLargeCodePageSize = lpInfo->pageSizeForCodeCache;
+            UDATA requestedLargeCodePageFlags = J9PORT_VMEM_PAGE_FLAG_NOT_USED;
+            BOOLEAN isRequestedSizeSupported = FALSE;
+            largePageSize = requestedLargeCodePageSize;
+            largePageFlags = requestedLargeCodePageFlags;
+#if defined(J9ZOS390)
+            largePageFlags = J9PORT_VMEM_PAGE_FLAG_PAGEABLE;
+#endif
+
+            // j9vmem_find_valid_page_size happened to be changed to always return 0
+            // However formally the function type still be IDATA so assert if it returns anything else
+            j9vmem_find_valid_page_size(J9PORT_VMEM_MEMORY_MODE_EXECUTE, &largePageSize, &largePageFlags, &isRequestedSizeSupported);
+
+            if (!isRequestedSizeSupported)
                {
-               // Comma separator is discovered
-               switch (parsingState)
+               // Generate warning message for user that requested page sizes / type is not supported.
+               char *oldQualifier, *newQualifier;
+               char *oldPageType = NULL;
+               char *newPageType = NULL;
+               UDATA oldSize = lpInfo->pageSizeForCodeCache;
+               UDATA newSize = largePageSize;
+
+               // Convert size to K,M,G qualifiers.
+               qualifiedSize(&oldSize, &oldQualifier);
+               qualifiedSize(&newSize, &newQualifier);
+
+               if (0 == (J9PORT_VMEM_PAGE_FLAG_NOT_USED & requestedLargeCodePageFlags))
+               oldPageType = getLargePageTypeString(requestedLargeCodePageFlags);
+
+               if (0 == (J9PORT_VMEM_PAGE_FLAG_NOT_USED & largePageFlags))
+               newPageType = getLargePageTypeString(largePageFlags);
+
+               if (NULL == oldPageType)
                   {
-                  case XLPCC_PARSING_FIRST_OPTION:
-                     // leading comma - ignored but warning required
-                     extraCommaWarning = true;
-                     parsingState = XLPCC_PARSING_OPTION;
-                     break;
-                  case XLPCC_PARSING_OPTION:
-                     // more then one comma - ignored but warning required
-                     extraCommaWarning = true;
-                     break;
-                  case XLPCC_PARSING_COMMA:
-                     // expecting for comma here, next should be an option
-                     parsingState = XLPCC_PARSING_OPTION;
-                     // next option number
-                     optionNumber += 1;
-                     break;
-                  case XLPCC_PARSING_ERROR:
-                  default:
-                     return false;
-                  }
-               }
-            else
-               {
-               // Comma separator has not been found. so
-               switch (parsingState)
-                  {
-                  case XLPCC_PARSING_FIRST_OPTION:
-                     // still looking for parsing of first option - nothing to do
-                     parsingState = XLPCC_PARSING_OPTION;
-                     break;
-                  case XLPCC_PARSING_OPTION:
-                     // Can not recognize an option case
-                     errorString = optionsString;
-                     parsingState = XLPCC_PARSING_ERROR;
-                     break;
-                  case XLPCC_PARSING_COMMA:
-                     // can not find comma after option - so this is something unrecognizable at the end of known option
-                     errorString = previousOption;
-                     parsingState = XLPCC_PARSING_ERROR;
-                     break;
-                  case XLPCC_PARSING_ERROR:
-                  default:
-                     // must be unreachable states
-                     return false;
-                  }
-               }
-
-            if (XLPCC_PARSING_ERROR == parsingState)
-               {
-               char *xlpOptionErrorString = errorString;
-               int32_t xlpOptionErrorStringSize = 0;
-
-               // try to find comma to isolate unrecognized option
-               char *commaLocation = strchr(errorString,',');
-
-               if (NULL != commaLocation)
-                  {
-                  // Comma found
-                  xlpOptionErrorStringSize = (size_t)(commaLocation - errorString);
-                  }
-               else
-                  {
-                  // comma not found - print to end of string
-                  xlpOptionErrorStringSize = strlen(errorString);
-                  }
-               j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_JIT_OPTIONS_XLP_UNRECOGNIZED_OPTION, xlpOptionErrorStringSize, xlpOptionErrorString);
-               return false;
-               }
-
-            previousOption = optionsString;
-
-            if (try_scan(&optionsString, "pagesize="))
-               {
-               // Try to get memory value.
-               // Given substring, we can't use GET_MEMORY_VALUE.
-               // Scan for UDATA and M/m,G/g,K/k manually.
-               UDATA scanResult = scan_udata(&optionsString, &requestedLargeCodePageSize);
-
-               // First scan for the integer string.
-               if (0 != scanResult)
-                  {
-                  if (1 == scanResult)
-                     j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_JIT_OPTIONS_MUST_BE_NUMBER, "pagesize=");
+                  if (NULL == newPageType)
+                     j9nls_printf(PORTLIB, J9NLS_INFO, J9NLS_JIT_OPTIONS_LARGE_PAGE_SIZE_NOT_SUPPORTED, oldSize, oldQualifier, newSize, newQualifier);
                   else
-                     j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_JIT_OPTIONS_VALUE_OVERFLOWED, "pagesize=");
-                  j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_JIT_OPTIONS_INCORRECT_MEMORY_SIZE, "-Xlp:codecache:pagesize=<size>");
-                  return false;
+                     j9nls_printf(PORTLIB, J9NLS_INFO, J9NLS_JIT_OPTIONS_LARGE_PAGE_SIZE_NOT_SUPPORTED_WITH_NEW_PAGETYPE, oldSize, oldQualifier, newSize, newQualifier, newPageType);
                   }
-
-               // Check for size qualifiers (G/M/K)
-               UDATA qualifierShiftAmount = 0;
-               if(try_scan(&optionsString, "G") || try_scan(&optionsString, "g"))
-                  qualifierShiftAmount = 30;
-               else if(try_scan(&optionsString, "M") || try_scan(&optionsString, "m"))
-                  qualifierShiftAmount = 20;
-               else if(try_scan(&optionsString, "K") || try_scan(&optionsString, "k"))
-                  qualifierShiftAmount = 10;
-
-               if (0 != qualifierShiftAmount)
+               else
                   {
-                  // Check for overflow
-                  if (requestedLargeCodePageSize <= (((UDATA)-1) >> qualifierShiftAmount))
-                     {
-                     requestedLargeCodePageSize <<= qualifierShiftAmount;
-                     }
+                  if (NULL == newPageType)
+                     j9nls_printf(PORTLIB, J9NLS_INFO, J9NLS_JIT_OPTIONS_LARGE_PAGE_SIZE_NOT_SUPPORTED_WITH_REQUESTED_PAGETYPE, oldSize, oldQualifier, oldPageType, newSize, newQualifier);
                   else
-                     {
-                     j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_JIT_OPTIONS_VALUE_OVERFLOWED, "pagesize=");
-                     j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_JIT_OPTIONS_INCORRECT_MEMORY_SIZE, "-Xlp:codecache:pagesize=<size>");
-                     return false;
-                     }
+                     j9nls_printf(PORTLIB, J9NLS_INFO, J9NLS_JIT_OPTIONS_LARGE_PAGE_SIZE_NOT_SUPPORTED_WITH_PAGETYPE, oldSize, oldQualifier, oldPageType, newSize, newQualifier, newPageType);
                   }
-
-               pageSizeHowMany += 1;
-               pageSizeOptionNumber = optionNumber;
-
-               parsingState = XLPCC_PARSING_COMMA;
-               }
-            else if (try_scan(&optionsString, "pageable"))
-               {
-               pageableHowMany += 1;
-               pageableOptionNumber = optionNumber;
-
-               parsingState = XLPCC_PARSING_COMMA;
-               }
-            else if (try_scan(&optionsString, "nonpageable"))
-               {
-               nonPageableHowMany += 1;
-               nonPageableOptionNumber = optionNumber;
-
-               parsingState = XLPCC_PARSING_COMMA;
-               }
-            }
-
-         // post-parse check for trailing comma(s)
-         switch (parsingState)
-            {
-            // if loop ended in one of these two states extra comma warning required
-            case XLPCC_PARSING_FIRST_OPTION:
-            case XLPCC_PARSING_OPTION:
-               // trailing comma(s) or comma(s) alone
-               extraCommaWarning = true;
-               break;
-            case XLPCC_PARSING_COMMA:
-               // loop ended at comma search state - do nothing
-               break;
-            case XLPCC_PARSING_ERROR:
-            default:
-               // must be unreachable states
-               return false;
-            }
-
-          // Verify "pagesize=<size>" option. 
-          // This option must be specified for all platforms.
-         if (0 == pageSizeHowMany)
-            {
-            j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_JIT_OPTIONS_XLP_INCOMPLETE_OPTION, "-Xlp:codecache:", "pagesize=");
-            return false;
-            }
-
-         #if defined(J9ZOS390)
-         //  [non]pageable option must be specified for Z platforms
-         if ((0 == pageableHowMany) && (0 == nonPageableHowMany))
-            {
-            // [non]pageable not found 
-            char *xlpOptionErrorString = "-Xlp:codecache:";
-            char *xlpMissingOptionString = "[non]pageable";
-
-            j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_JIT_OPTIONS_XLP_INCOMPLETE_OPTION, xlpOptionErrorString, xlpMissingOptionString);
-            return false;
-            }
-
-         // Check for the right most option is most right
-         if (pageableOptionNumber > nonPageableOptionNumber)
-            requestedLargeCodePageFlags = J9PORT_VMEM_PAGE_FLAG_PAGEABLE;
-         else
-            requestedLargeCodePageFlags = J9PORT_VMEM_PAGE_FLAG_FIXED;
-
-         #endif // defined(J9ZOS390)
-
-         // print extra comma ignored warning
-         if (extraCommaWarning)
-            j9nls_printf(PORTLIB, J9NLS_INFO, J9NLS_JIT_OPTIONS_XLP_EXTRA_COMMA);
-         }
-      // Parse Size -Xlp<size>
-      else if (xlpIndex >= 0)
-         {
-         // GET_MEMORY_VALUE macro casts it's second parameter to (char**)&, so a pointer to the option string is passed rather than the string literal.
-         char *lpOption = "-Xlp";
-         GET_MEMORY_VALUE(xlpIndex, lpOption, requestedLargeCodePageSize);
-         }
-      
-      if (requestedLargeCodePageSize != 0)
-         {
-         // Check to see if requested size is valid
-         BOOLEAN isRequestedSizeSupported = FALSE;
-         largePageSize = requestedLargeCodePageSize;
-         largePageFlags = requestedLargeCodePageFlags;
-
-         
-         // j9vmem_find_valid_page_size happened to be changed to always return 0
-         // However formally the function type still be IDATA so assert if it returns anything else
-         j9vmem_find_valid_page_size(J9PORT_VMEM_MEMORY_MODE_EXECUTE, &largePageSize, &largePageFlags, &isRequestedSizeSupported);
-
-         if (!isRequestedSizeSupported)
-            {
-            // Generate warning message for user that requested page sizes / type is not supported.
-            char *oldQualifier, *newQualifier;
-            char *oldPageType = NULL;
-            char *newPageType = NULL;
-            UDATA oldSize = requestedLargeCodePageSize;
-            UDATA newSize = largePageSize;
-
-            // Convert size to K,M,G qualifiers.
-            qualifiedSize(&oldSize, &oldQualifier);
-            qualifiedSize(&newSize, &newQualifier);
-
-            if (0 == (J9PORT_VMEM_PAGE_FLAG_NOT_USED & requestedLargeCodePageFlags))
-            oldPageType = getLargePageTypeString(requestedLargeCodePageFlags);
-
-            if (0 == (J9PORT_VMEM_PAGE_FLAG_NOT_USED & largePageFlags))
-            newPageType = getLargePageTypeString(largePageFlags);
-
-            if (NULL == oldPageType)
-               {
-               if (NULL == newPageType)
-                  j9nls_printf(PORTLIB, J9NLS_INFO, J9NLS_JIT_OPTIONS_LARGE_PAGE_SIZE_NOT_SUPPORTED, oldSize, oldQualifier, newSize, newQualifier);
-               else
-                  j9nls_printf(PORTLIB, J9NLS_INFO, J9NLS_JIT_OPTIONS_LARGE_PAGE_SIZE_NOT_SUPPORTED_WITH_NEW_PAGETYPE, oldSize, oldQualifier, newSize, newQualifier, newPageType);
-               }
-            else
-               {
-               if (NULL == newPageType)
-                  j9nls_printf(PORTLIB, J9NLS_INFO, J9NLS_JIT_OPTIONS_LARGE_PAGE_SIZE_NOT_SUPPORTED_WITH_REQUESTED_PAGETYPE, oldSize, oldQualifier, oldPageType, newSize, newQualifier);
-               else
-                  j9nls_printf(PORTLIB, J9NLS_INFO, J9NLS_JIT_OPTIONS_LARGE_PAGE_SIZE_NOT_SUPPORTED_WITH_PAGETYPE, oldSize, oldQualifier, oldPageType, newSize, newQualifier, newPageType);
                }
             }
          }
-      // When no -Xlp arguments are passed, we should use preferred page sizes
+      // Large Pages are not enabled. Use System Preffered Page Size.
       else
          {
          UDATA *pageSizes = j9vmem_supported_page_sizes();
@@ -1773,6 +1547,7 @@ J9::Options::fePreProcess(void * base)
             }
          }
 
+      // Save Verified Large Page Size
       if (largePageSize > (0) && isNonNegativePowerOf2((int32_t)largePageSize))
          {
          jitConfig->largeCodePageSize = (int32_t)largePageSize;

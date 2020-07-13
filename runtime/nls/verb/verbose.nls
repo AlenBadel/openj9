@@ -310,15 +310,24 @@ J9NLS_VERB_SIZES_XSCMAXJITDATA.system_action=
 J9NLS_VERB_SIZES_XSCMAXJITDATA.user_response=
 # END NON-TRANSLATABLE
 
-J9NLS_VERB_SIZES_XLP_CODECACHE=large page size for JIT code cache
+J9NLS_VERB_SIZES_XLP_CODECACHE=large page size
 # START NON-TRANSLATABLE
-J9NLS_VERB_SIZES_XLP_CODECACHE.explanation=NOTAG
-J9NLS_VERB_SIZES_XLP_CODECACHE.system_action=
-J9NLS_VERB_SIZES_XLP_CODECACHE.user_response=
+J9NLS_VERB_SIZES_XLP_CODECACHE.explanation=Explains the large page size for JIT code cache
+J9NLS_VERB_SIZES_XLP_CODECACHE.system_action=None
+J9NLS_VERB_SIZES_XLP_CODECACHE.user_response=None
 
 # END NON-TRANSLATABLE
 
-J9NLS_VERB_SIZES_AVAILABLE_XLP_CODECACHE=available large page sizes for JIT code cache:
+# This is a JIT option output by -verbose:sizes
+J9NLS_VERB_ENABLE_XLP_CODECACHE=state of large pages on JIT code cache
+# START NON-TRANSLATABLE
+J9NLS_VERB_ENABLE_XLP_CODECACHE.explanation=Explains the -XX:[+/-]UseLargePagesCodeCache option is specified
+J9NLS_VERB_ENABLE_XLP_CODECACHE.system_action=None
+J9NLS_VERB_ENABLE_XLP_CODECACHE.user_response=none
+
+# END NON-TRANSLATABLE
+
+J9NLS_VERB_SIZES_AVAILABLE_XLP_CODECACHE=available large pages for JIT code cache:
 # START NON-TRANSLATABLE
 J9NLS_VERB_SIZES_AVAILABLE_XLP_CODECACHE.explanation=NOTAG
 J9NLS_VERB_SIZES_AVAILABLE_XLP_CODECACHE.system_action=
@@ -344,4 +353,13 @@ J9NLS_VERB_SIZES_XSCMX_V1=shared class cache soft max size
 J9NLS_VERB_SIZES_XSCMX_V1.explanation=NOTAG
 J9NLS_VERB_SIZES_XSCMX_V1.system_action=
 J9NLS_VERB_SIZES_XSCMX_V1.user_response=
+# END NON-TRANSLATABLE
+
+# This is a JIT option output by -verbose:sizes
+J9NLS_VERB_SIZES_XLP=large page size
+# START NON-TRANSLATABLE
+J9NLS_VERB_SIZES_XLP.explanation=Explains the -Xlp option when -verbose:sizes is specified
+J9NLS_VERB_SIZES_XLP.system_action=None
+J9NLS_VERB_SIZES_XLP.user_response=None
+
 # END NON-TRANSLATABLE

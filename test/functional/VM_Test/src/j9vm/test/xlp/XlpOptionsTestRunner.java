@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2001, 2019 IBM Corp. and others
+ * Copyright (c) 2001, 2020 IBM Corp. and others
  *
  * This program and the accompanying materials are made available under
  * the terms of the Eclipse Public License 2.0 which accompanies this
@@ -22,784 +22,324 @@
 
 package j9vm.test.xlp;
 
-import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.util.ArrayList;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.io.*;
+import java.util.*;
 
 import j9vm.runner.Runner;
-import j9vm.test.xlphelper.XlpOption;
-import j9vm.test.xlphelper.XlpUtil;
+import j9vm.test.xlp.xlphelper.*;
+import j9vm.test.xlp.xlphelper.XlpUtil.*;
 
-/**
- * This test checks different flavors of -Xlp option except -Xlp:codecache
- * It uses -Xlp options along with -verbose:gc to verify the working of -Xlp options.
- * 
- * Before testing any -Xlp option, it runs -verbose:sizes to check if default large page sizes is supported by the platform
- * and to get the default page size. Default page size is the first entry in the list of supported page sizes displayed by
- * -verbose:sizes output.
- * 
- * Default/preferred page size on various platforms is as follows:
- * 		On AIX, it is 64K if available.
- * 		On Linux x86 (including amd64), it is 2M if available.
- * 		On zLinux, it is 1M if available.
- * 		On z/OS, it is 1M pageable if available. 
- *  
- * All Xlp options to be tested are added to an Xlp option array list in following order:
- * 		no -Xlp option,
- * 		-Xlp,
- * 		-Xlp<size>,
- * 		-Xlp:objectheap,
- * 		-Xlp with -Xlp<size>,
- * 		-Xlp with -Xlp:objectheap,
- * 		-Xlp<size> with -Xlp:objectheap,
- * 		Multiple -Xlp<size>,
- * 		Multiple -Xlp:objectheap
- *		Multiple pagesize and [non,]pageable parameters
- * 		
- * 
- * -Xlp options tested are specific to the platform in terms of page size and page type specified.
- * 
- * It then executes command corresponding to each entry in the Xlp option array list.
- * Each command uses -verbose:gc option to generate GC logs.
- * 
- * Output of each command is analyzed as follows:
- * 
- * 		- When running without -Xlp option, verify in GC logs that JVM is using the default page size.
- * 			Note that on AIX preferred default page size for heap allocation is 64K and on Linux it is 2M.
- * 
- * 		- For other flavors of -Xlp (which includes -Xlp<size> and -Xlp:objectheap) it performs following checks:
- * 			- If default large page size is not available, then '-Xlp' and '-Xlp<size>' should fail.
- * 			- If default large page size is available, check the presence of following information in gc logs:
- * 				'pageSize': this is the page size used by port library to allocate heap.
- * 				'pageType': page type for 'pageSize'. 
- * 				'requestedPageSize': this is the page size used by GC to make request for heap allocation to port library.
- * 				'requestedPageType': page type for 'requestedPageSize'.
- * 
- *				A sample output from gc logs showing above parameter is:
- *					<attribute name="pageSize" value="0x100000" />
- *					<attribute name="pageType" value="nonpageable" />
- *					<attribute name="requestedPageSize" value="0x80000000" />
- *					<attribute name="requestedPageType" value="nonpageable" />
- *
- *			- On non-Z platforms, if default large page size is not available, verify that JVM uses default page size. 
- * 			- If the (requestedPageSize, requestedPageType) combination is not same as specified in -Xlp option,
- * 				a warning message that JVM is using a different page size than specified should be printed.
- * 
- * 		- Verify the (requestedPageSize, requestedPageType) in gc logs is same as the value of -Xlp:objectheap in -verbose:sizes output. 
- * 
- * @author Ashutosh Mehra
- */
+
 public class XlpOptionsTestRunner extends Runner {
 
-	private static final long ONE_KB = 1 * 1024;
-	private static final long ONE_MB = 1 * 1024 * 1024;
-	private static final long ONE_GB = 1 * 1024 * 1024 * 1024;
-	
-	private int commandIndex = 0;
-	
-	private ArrayList<XlpOption> xlpOptionsList = null;
-	
-	private boolean isDefaultLargePageSizeSupported = false;
-	
-	private long defaultPageSize = 4 * ONE_KB;
-	private String defaultPageType = XlpUtil.XLP_PAGE_TYPE_NOT_USED;
-	private String differentPageSizeWarningMsg = "(.)* Large page size (.)* is not a supported page size; using (.)* instead";
-	private String unsupportedOptionMsg = "System configuration does not support option '-Xlp'";
-	
+	//private String differentPageSizeWarningMsg = "(.)* Large page size (.)* is not a supported page size(.)*; using (.)* instead";
+
+	private String customArguments = null;
 	public XlpOptionsTestRunner(String className, String exeName,
 			String bootClassPath, String userClassPath, String javaVersion) {
 		super(className, exeName, bootClassPath, userClassPath, javaVersion);
-
-		populateXlpOptionsList();
-		
-		if (osName == OSName.ZOS) {
-			defaultPageType = XlpUtil.XLP_PAGE_TYPE_PAGEABLE;
-		}
-	}
-	
-	/**
-	 * Creates array list containing all Xlp options to be tested.
-	 */
-	protected void populateXlpOptionsList() {
-		xlpOptionsList = new ArrayList<XlpOption>();
-		switch(osName) {
-		case AIX:
-			/* No -Xlp option */
-			xlpOptionsList.add(new XlpOption(null, false));
-			
-			/* Test '-Xlp' option. We can't determine the pageSize beforehand for -Xlp. 
-			 * Moreover, we don't need pageSize for this case as command with '-Xlp' option
-			 * will never generate a warning message.  
-			 */
-			xlpOptionsList.add(new XlpOption("-Xlp", true));
-			
-			/* Test -Xlp<size> options */
-			xlpOptionsList.add(new XlpOption("-Xlp4K", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			xlpOptionsList.add(new XlpOption("-Xlp64K", 64 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			xlpOptionsList.add(new XlpOption("-Xlp16M", 16 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			/* Value larger than or equal to 4G for pagesize on 32-bit JVM will cause JVM startup to fail */
-			if (addrMode == AddrMode.BIT64) {
-				xlpOptionsList.add(new XlpOption("-Xlp16G", 16 * ONE_GB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			}
-			/* An unsupported page size (as of now) */
-			xlpOptionsList.add(new XlpOption("-Xlp7M", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			
-			/* Test -Xlp:objectheap: options. Note that [non]pageable parameters are just ignored. */
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=4K", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=4K,pageable", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=4K,nonpageable", 4 *ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=64K", 64 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=64K,pageable", 64 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=64K,nonpageable", 64 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=16M", 16 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=16M,pageable", 16 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=16M,nonpageable", 16 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			/* Value larger than or equal to 4G for pagesize on 32-bit JVM will cause JVM startup to fail */
-			if (addrMode == AddrMode.BIT64) {
-				xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=16G", 16 * ONE_GB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-				xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=16G,pageable", 16 * ONE_GB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-				xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=16G,nonpageable", 16 * ONE_GB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			}
-			/* Unsupported page size (as of now) */
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=7M", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=7M,pageable", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=7M,nonpageable", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			
-			/* Test -Xlp with -Xlp<size> option. In such case -Xlp is ignored */
-			xlpOptionsList.add(new XlpOption("-Xlp -Xlp4K", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			xlpOptionsList.add(new XlpOption("-Xlp4K -Xlp", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			
-			xlpOptionsList.add(new XlpOption("-Xlp -Xlp7M", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			xlpOptionsList.add(new XlpOption("-Xlp7M -Xlp", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			
-			/* Test -Xlp with -Xlp:objectheap: option. In such case -Xlp is ignored */
-			xlpOptionsList.add(new XlpOption("-Xlp -Xlp:objectheap:pagesize=4K", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=4K -Xlp", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			
-			xlpOptionsList.add(new XlpOption("-Xlp -Xlp:objectheap:pagesize=7M", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=7M -Xlp", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			
-			/* Test -Xlp<size> with -Xlp:objectheap: option. In such cases rightmost option wins */
-			xlpOptionsList.add(new XlpOption("-Xlp64K -Xlp:objectheap:pagesize=16M", 16 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=16M -Xlp64K", 64 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			
-			xlpOptionsList.add(new XlpOption("-Xlp16M -Xlp:objectheap:pagesize=7M", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=7M -Xlp16M", 16 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			
-			/* Test multiple -Xlp<size> options. In such cases rightmost option wins */
-			xlpOptionsList.add(new XlpOption("-Xlp64K -Xlp16M", 16 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			xlpOptionsList.add(new XlpOption("-Xlp16M -Xlp64K", 64 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			
-			/* Test multiple -Xlp:objectheap: options. In such cases rightmost option wins */
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=64K -Xlp:objectheap:pagesize=16M", 16 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=16M -Xlp:objectheap:pagesize=64K", 64 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-
-			/* Test multiple pagesize parameters. In such cases rightmost parameter wins */
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=64K,pagesize=16M", 16 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=16M,pagesize=64K", 64 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			break;
-			
-		case LINUX:
-		case WINDOWS:
-			/* No -Xlp option */
-			xlpOptionsList.add(new XlpOption(null, false));
-			
-			/* Test '-Xlp' option. We can't determine the pageSize beforehand for -Xlp. 
-			 * Moreover, we don't need pageSize for this case as command with '-Xlp' option
-			 * will never generate a warning message.  
-			 */
-			xlpOptionsList.add(new XlpOption("-Xlp", true));
-			
-			/* Test '-Xlp<size>' options */
-			xlpOptionsList.add(new XlpOption("-Xlp4K", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			xlpOptionsList.add(new XlpOption("-Xlp2M", 2 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			xlpOptionsList.add(new XlpOption("-Xlp4M", 4 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			/* Unsupported page size (as of now) */
-			xlpOptionsList.add(new XlpOption("-Xlp7M", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			
-			/* Test '-Xlp:objectheap:' options. Note that [non]pageable parameters are just ignored. */
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=4K", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=4K,pageable", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=4K,nonpageable", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=2M", 2 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=2M,pageable", 2 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=2M,nonpageable", 2 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=4M", 4 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=4M,pageable", 4 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=4M,nonpageable", 4 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			/* Unsupported page size (as of now) */
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=7M", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=7M,pageable", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=7M,nonpageable", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			
-			/* Test -Xlp with -Xlp<size> option. In such case -Xlp is ignored */
-			xlpOptionsList.add(new XlpOption("-Xlp -Xlp4K", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			xlpOptionsList.add(new XlpOption("-Xlp4K -Xlp", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			
-			xlpOptionsList.add(new XlpOption("-Xlp -Xlp7M", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			xlpOptionsList.add(new XlpOption("-Xlp7M -Xlp", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			
-			/* Test -Xlp with -Xlp:objectheap: option. In such case -Xlp is ignored */
-			xlpOptionsList.add(new XlpOption("-Xlp -Xlp:objectheap:pagesize=4K", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=4K -Xlp", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			
-			xlpOptionsList.add(new XlpOption("-Xlp -Xlp:objectheap:pagesize=7M", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=7M -Xlp", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			
-			/* Test -Xlp<size> with -Xlp:objectheap: option. In such cases rightmost option wins */
-			xlpOptionsList.add(new XlpOption("-Xlp2M -Xlp:objectheap:pagesize=4M", 4 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=4M -Xlp2M", 2 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			
-			xlpOptionsList.add(new XlpOption("-Xlp2M -Xlp:objectheap:pagesize=7M", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=7M -Xlp2M", 2 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			
-			/* Test multiple -Xlp<size> options. In such cases rightmost option wins */
-			xlpOptionsList.add(new XlpOption("-Xlp2M -Xlp4M", 4 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			xlpOptionsList.add(new XlpOption("-Xlp4M -Xlp2M", 2 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, true));
-			
-			/* Test multiple -Xlp:objectheap: options. In such cases rightmost option wins */
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=2M -Xlp:objectheap:pagesize=4M", 4 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=4M -Xlp:objectheap:pagesize=2M", 2 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-
-			/* Test multiple pagesize parameters. In such cases rightmost parameter wins */
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=2M,pagesize=4M", 4 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=4M,pagesize=2M", 2 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NOT_USED, false));
-
-			break;
-			
-		case ZOS:
-			/* No -Xlp option */
-			xlpOptionsList.add(new XlpOption(null, false));
-			
-			/* Test '-Xlp' option. We can't determine the pageSize beforehand for -Xlp. 
-			 * Moreover, we don't need pageSize for this case as command with '-Xlp' option
-			 * will never generate a warning message.  
-			 */
-			xlpOptionsList.add(new XlpOption("-Xlp", true));
-			
-			/* Test '-Xlp<size>' options */
-			xlpOptionsList.add(new XlpOption("-Xlp4K", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_PAGEABLE, true));
-			xlpOptionsList.add(new XlpOption("-Xlp1M", ONE_MB, XlpUtil.XLP_PAGE_TYPE_NONPAGEABLE, true));
-			xlpOptionsList.add(new XlpOption("-Xlp2G", 2 * ONE_GB, XlpUtil.XLP_PAGE_TYPE_NONPAGEABLE, true));
-			/* Unsupported page size (as of now) */
-			xlpOptionsList.add(new XlpOption("-Xlp7M", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NONPAGEABLE, true));
-			
-			/* Test '-Xlp:objectheap:' options */
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=4K,pageable", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_PAGEABLE, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=4K,nonpageable", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_NONPAGEABLE, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=1M,pageable", ONE_MB, XlpUtil.XLP_PAGE_TYPE_PAGEABLE, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=1M,nonpageable", ONE_MB, XlpUtil.XLP_PAGE_TYPE_NONPAGEABLE, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=2G,pageable", 2 * ONE_GB, XlpUtil.XLP_PAGE_TYPE_PAGEABLE, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=2G,nonpageable", 2 * ONE_GB, XlpUtil.XLP_PAGE_TYPE_NONPAGEABLE, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=7M,pageable", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_PAGEABLE, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=7M,nonpageable", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NONPAGEABLE, false));
-			
-			/* Test -Xlp with -Xlp<size> option. In such case -Xlp is ignored */
-			xlpOptionsList.add(new XlpOption("-Xlp -Xlp4K", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_PAGEABLE, true));
-			xlpOptionsList.add(new XlpOption("-Xlp4K -Xlp", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_PAGEABLE, true));
-			
-			xlpOptionsList.add(new XlpOption("-Xlp -Xlp7M", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NONPAGEABLE, true));
-			xlpOptionsList.add(new XlpOption("-Xlp7M -Xlp", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NONPAGEABLE, true));
-			
-			/* Test -Xlp with -Xlp:objectheap: option. In such case -Xlp is ignored */
-			xlpOptionsList.add(new XlpOption("-Xlp -Xlp:objectheap:pagesize=4K,pageable", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_PAGEABLE, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=4K,pageable -Xlp", 4 * ONE_KB, XlpUtil.XLP_PAGE_TYPE_PAGEABLE, false));
-			
-			xlpOptionsList.add(new XlpOption("-Xlp -Xlp:objectheap:pagesize=7M,nonpageable", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NONPAGEABLE, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=7M,nonpageable -Xlp", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NONPAGEABLE, false));
-			
-			/* Test -Xlp<size> with -Xlp:objectheap: option. In such cases rightmost option wins */
-			xlpOptionsList.add(new XlpOption("-Xlp1M -Xlp:objectheap:pagesize=2G,pageable", 2 * ONE_GB, XlpUtil.XLP_PAGE_TYPE_PAGEABLE, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=2G,pageable -Xlp1M", ONE_MB, XlpUtil.XLP_PAGE_TYPE_NONPAGEABLE, true));
-			
-			xlpOptionsList.add(new XlpOption("-Xlp2G -Xlp:objectheap:pagesize=7M,nonpageable", 7 * ONE_MB, XlpUtil.XLP_PAGE_TYPE_NONPAGEABLE, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=7M,nonpageable -Xlp2G", 2 * ONE_GB, XlpUtil.XLP_PAGE_TYPE_NONPAGEABLE, true));
-			
-			/* Test multiple -Xlp<size> options. In such cases rightmost option wins */
-			xlpOptionsList.add(new XlpOption("-Xlp1M -Xlp2G", 2 * ONE_GB, XlpUtil.XLP_PAGE_TYPE_NONPAGEABLE, true));
-			xlpOptionsList.add(new XlpOption("-Xlp2G -Xlp1M", ONE_MB, XlpUtil.XLP_PAGE_TYPE_NONPAGEABLE, true));
-			
-			/* Test multiple -Xlp:objectheap: options. In such cases rightmost option wins */
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=1M,pageable -Xlp:objectheap:pagesize=2G,nonpageable", 2 * ONE_GB, XlpUtil.XLP_PAGE_TYPE_NONPAGEABLE, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=2G,nonpageable -Xlp:objectheap:pagesize=1M,pageable", ONE_MB, XlpUtil.XLP_PAGE_TYPE_PAGEABLE, false));
-
-			/* Test multiple pagesize and [non,]pageable parameters. In such cases rightmost parameter wins */
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=1M,pageable,pagesize=2G,nonpageable", 2 * ONE_GB, XlpUtil.XLP_PAGE_TYPE_NONPAGEABLE, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pagesize=2G,pagesize=1M,nonpageable,pageable", ONE_MB, XlpUtil.XLP_PAGE_TYPE_PAGEABLE, false));
-			xlpOptionsList.add(new XlpOption("-Xlp:objectheap:pageable,pagesize=2G,nonpageable,pagesize=1M", ONE_MB, XlpUtil.XLP_PAGE_TYPE_NONPAGEABLE, false));
-
-			break;
-		default:
-			System.out.println("WARNING: Failed to determine underlying OS. This test needs to know underlying OS.");
-			break;
-		}
+		System.out.println("Init XlpTest");
 	}
 
-	/* Overrides method in Runner. */
+	/* Validate Supported Large Pages Verbose Output */
+	private <T extends XlpTestInterface> boolean validateSupportedLargePagesInVerbose(ArrayList<Pair<Long, String>> supportedLargePagesInVerbose, T component) {
+		/* Obtain the supported large pages on the platform */
+		ArrayList<Pair<Long, String>> supportedLargePages = component.getSupportedLargePages();
+		return supportedLargePages.containsAll(supportedLargePagesInVerbose);
+	}
+
 	public String getCustomCommandLineOptions() {
-		String customOptions = super.getCustomCommandLineOptions();
+		return customArguments;
+	}
+
+	public boolean run() {
+		System.out.println("Running XlpTest");
+		XlpCodeCache codecache = new XlpCodeCache();
+
+		/* Run all CodeCache Tests */
+		ArrayList<XlpOption> codecacheTests = codecache.populateXlpTestCases();
+		boolean success  = false;
+		for (int commandIndex = 0; commandIndex < codecacheTests.size(); commandIndex++) {
+			XlpOption xlpOption = codecacheTests.get(commandIndex);
+			/* Update Command Line Test */
+			setCustomCommandLineOptions(xlpOption);
+			/* Run Command */
+			super.run();
+
+			/* Analyze the output */
+			byte[] stdErr = errCollector.getOutputAsByteArray();
+			try {
+				success = analyze(xlpOption, stdErr, codecache);
+			} catch (IOException e) {
+				System.out.println("Encountered IOException During CodeCache Test. Running Test:" + xlpOption);
+				e.printStackTrace();
+				return false;
+			}
+			
+			if (!success) {
+				System.out.println("Failed CodeCache Test:" + xlpOption);
+				return false;
+			}
+		}
 		
-		/* First command is to see if large page sizes are supported by parsing output of -verbose:sizes */
-		customOptions += "-verbose:sizes ";
-		if (commandIndex > 0) {
-			String option = null;
-			customOptions += "-verbose:gc ";
-			XlpOption xlpOption = xlpOptionsList.get(commandIndex-1);
-			option = xlpOption.getOption();
-			/* XlpOption.option is null for 0th entry in xlpOptionsList.
-			 * This corresponds to running without -Xlp option.
-			 */
-			if (option != null) {
-				customOptions += option;
+		System.out.println("Passed all CodeCache Tests");
+
+		/* Run all ObjectHeap Tests */
+		XlpObjectHeap objectheap = new XlpObjectHeap();
+		ArrayList<XlpOption> objectheapTests = objectheap.populateXlpTestCases();
+		for (int commandIndex = 0; commandIndex < objectheapTests.size(); commandIndex++) {
+			XlpOption xlpOption = objectheapTests.get(commandIndex);
+			/* Update Command Line Test */
+			setCustomCommandLineOptions(xlpOption);
+			/* Run Command */
+			super.run();
+
+			/* Analyze the output */
+			byte[] stdErr = errCollector.getOutputAsByteArray();
+			try {
+				success = analyze(xlpOption, stdErr, codecache);
+			} catch (IOException e) {
+				System.out.println("Encountered IOException During ObjectHeap Test. Running Test:" + xlpOption);
+				e.printStackTrace();
+				return false;
+			}
+			
+			if (!success) {
+				System.out.println("Failed ObjectHeap Test:" + xlpOption);
+				return false;
+			}
+		}
+		System.out.println("Passed All ObjectHeap Tests");
+		return true;
+	}
+
+	private void setCustomCommandLineOptions(XlpOption xlpOption) {
+		String customArguments = super.getCustomCommandLineOptions() + "-verbose:sizes " + "-verbose:gc ";
+		String option = xlpOption.getOption();
+		if (option != null) {
+			customArguments += option;
+		}
+	}
+
+	/* Validate Large Page */
+	private <T extends XlpTestInterface> boolean validateLargePageInVerbose(Pair<Long, String> largePageExtracted, T component) {
+		ArrayList<Pair<Long, String>> supportedLargePages = component.getSupportedLargePages();
+		return supportedLargePages.contains(largePageExtracted);
+	}
+
+	private <T extends XlpTestInterface> boolean validateDefaultLargePage(Pair<Long, String> largePageUsed, ArrayList<Pair<Long, String>> verbosePageList, T component) {
+		/* Some Platforms have special default pages */
+		ArrayList<Pair<Long, String>> specialDefaultPages = component.getDefaultLargePages();
+
+		/* Platforms with defined default pages, the used large page must be the leading configured default page */
+		if (specialDefaultPages != null) {
+			Collections.reverse(specialDefaultPages);
+			for (Pair<Long, String> page : specialDefaultPages) {
+				/* Default Page was configured. It must be chosen as the default page. */
+				if (verbosePageList.contains(page)) {
+					return page.equals(largePageUsed);
+				}
+			}
+			return false;
+		}
+
+		/* Other platforms, they must use the default huge page size */
+		if (verbosePageList.size() < 2) {
+			System.out.println("Operating system does not have huge pages configured.");
+			return false;
+		}
+		return largePageUsed.equals(verbosePageList.get(1));
+	}
+
+	private boolean validateLargePage(Pair<Long, String> currentPage, Pair<Long, String> expectedPage, ArrayList<Pair<Long, String>> supportedPageSizesInVerbose) {
+
+		if (currentPage.equals(expectedPage))
+			return true;
+		
+		if (supportedPageSizesInVerbose.contains(expectedPage)) {
+			System.out.println("Expected Page was supported but not chosen.");
+			return false;
+		}
+
+		if (currentPage.getKey() > expectedPage.getKey()) {
+			System.out.println("Downgraded Page can not be greater than the expected page.");
+			return false;
+		}
+
+		ListIterator<Pair<Long, String>> supportedPagesIterator = supportedPageSizesInVerbose.listIterator(supportedPageSizesInVerbose.size());
+		while (supportedPagesIterator.hasPrevious()) {
+			Pair<Long, String> page = supportedPagesIterator.previous();
+			if (page.getKey() <= expectedPage.getKey()) {
+				return page.equals(currentPage);
 			}
 		}
 
-		return customOptions;
+		System.out.println("Unexpected failure while validating large pages.");
+		return false;
 	}
 
-	/* Overrides method in j9vm.runner.Runner. */
-	public boolean run() {
-		boolean success = false;
-		/* xlpOptionsList.size()+1 is to account for first command that runs -verbose:sizes */
-		for (commandIndex = 0; commandIndex < xlpOptionsList.size()+1; commandIndex++) {
-			success = super.run();
-			if (commandIndex != 0) {
-				/* We are testing -Xlp option */
-				XlpOption xlpOption = xlpOptionsList.get(commandIndex-1);
-				/* Overwrite 'success' if we know the command will fail */ 
-				if ((xlpOption.canFail() == true) && (isDefaultLargePageSizeSupported == false)) {
-					success = true;
-				}
+	private <T extends XlpTestInterface> boolean verifyLargePageSize(long largePageExpected, long largePageInVerbose, ArrayList<Pair<Long, String>> supportedLargePagesInVerbose, T component) {
+		OSName osName = component.getOperatingSystem();
+		// Verbose Output size is equal to what was expected
+		if (largePageExpected == largePageInVerbose)
+			return true;
+		
+		// Find the valid downgraded page sizes
+		long expectedDowngradedPageSize = 0;
+		String expectedDowngradePageType = null;
+		for (Pair<Long, String> supportedPage : supportedLargePagesInVerbose) {
+			long pageSize = supportedPage.getKey();
+
+			if (osName == OSName.ZOS) {
+				String pageType = supportedPage.getValue();
+			} else if (pageSize <= largePageExpected) {
+				expectedDowngradedPageSize = pageSize;
 			}
-			if (success == true) {
-				byte[] stdOut = inCollector.getOutputAsByteArray();
-				byte[] stdErr = errCollector.getOutputAsByteArray();
-				try {
-					success = analyze(stdOut, stdErr);
-				} catch (Exception e) {
-					success = false;
-					System.out.println("Unexpected Exception:");
-					e.printStackTrace();
-				}
-			}
-			if (success == false) {
+		}
+
+		/* Check has it been downgraded successfully */
+		if (expectedDowngradedPageSize == largePageInVerbose)
+			return true;
+		return false;
+	}
+
+	public <T extends XlpTestInterface> boolean analyze(XlpOption xlpOption, byte[] stdErr, T component) throws IOException {
+		BufferedReader in = new BufferedReader(new InputStreamReader(
+				new ByteArrayInputStream(stdErr)));
+		ArrayList<String> outputList = new ArrayList<String>();
+		OSName osName = component.getOperatingSystem();
+		/* Fast-forward to where a JVM Error occurs, or the -XX:[+/-]UseLargePagesCodeCache header occurs. */
+		String inputLine = null;
+		String unsupportedOptionMsg = component.getUnsupportedLargePagesMsg();
+		String labelMsg = component.getComponentLabel();
+		while ((inputLine = in.readLine()) != null) {
+			System.out.println("inputLine:" + inputLine);
+			if (inputLine.contains(unsupportedOptionMsg)) {
+				System.out.println("Large Pages is not supported on this machine. Skipping Test.");
+				return true;
+			} else if (inputLine.matches("-XX:(\\+|\\-)" + labelMsg)) {
+				outputList.add(inputLine);
 				break;
 			}
 		}
-		return success;
-	}
-	
-	public boolean analyze(byte[] stdOut, byte[] stdErr) throws IOException {
-		BufferedReader in = new BufferedReader(new InputStreamReader(
-				new ByteArrayInputStream(stdErr)));
-		String errorLine = null;
-		boolean error = false;
-		
-		if (commandIndex == 0) {
-			String line = null;
-			/* Output corresponds to -verbose:sizes option.
-			 * Parse it to check if default large page size is available or not.
-			 */
-			
-			/* Skip any statements till -Xlp */
-			do {
-				line = in.readLine();
-			} while((line != null) && (line.indexOf("-Xlp:objectheap:pagesize=") == -1));
-			if (line != null) {
-				String pageSizeString = null;
-				String pageTypeString = null;
-				String defaultLargePageSize = null;
-				String defaultLargePageType = null;
-				
-				/*
-				 * An example of -Xlp in -verbose:sizes on z/OS platform is:
-				 *   	-Xlp:objectheap:pagesize=4K,pageable   large page size
-				 *   		            available large page sizes:
-				 *   	                4K pageable
-				 *                      1M pageable
-				 *                      2G nonpageable
-				 *                      
-				 * An example of -Xlp in -verbose:sizes on non-z/OS platforms is:
-				 *   	-Xlp:objectheap:pagesize=4K   large page size
-				 *   		            available large page sizes:
-				 *   	                4K
-				 *                      64K
-				 *                      16M
-				 *                      2G
-				 *                      
-				 */
-				line = in.readLine();	/* skip 'available large page sizes:' */
-				boolean firstEntryDone = false;
-				
-				do {
-					line = in.readLine();
-					if (line == null) {
-						/* This should not happen, but in case does, break out */
-						break;
-					}
-					line = line.trim();
-					if (line.startsWith("-X")) {
-						/* Some other option. End of list of supported page sizes, break out */
-						break;
-					}
-					if (!firstEntryDone) {
-						/* This is the first entry, treat it as default page size. 
-						 * Note that it may get overwritten later.
-						 */
-						firstEntryDone = true;
-						if (osName == OSName.ZOS) {
-							/* Split around empty space to get page size and page type */
-							pageSizeString = line.split(" ")[0];
-							defaultPageType = line.split(" ")[1];
-						} else {
-							pageSizeString = line;
-						}
-						defaultPageSize = XlpUtil.pageSizeStringToLong(pageSizeString);
-						if (defaultPageSize == 0) {
-							/* Failed to get valid page size */
-							error = true;
-							errorLine = line;
-							break;
-						}
-					} else {
-						/* Overwrite default page size depending on preferences specific to each platform */
-						if (osName == OSName.ZOS) {
-							/* Split around empty space to get page size and page type */
-							pageSizeString = line.split(" ")[0];
-							pageTypeString = line.split(" ")[1];
-							/* On z/OS, default large page size is 1M nonpageable */
-							if ((pageSizeString.equals("1M") == true) && (pageTypeString.equals(XlpUtil.XLP_PAGE_TYPE_NONPAGEABLE))) {
-								isDefaultLargePageSizeSupported = true;
-								defaultLargePageSize = pageSizeString;
-								defaultLargePageType = pageTypeString;
-							}
-							/* On z/OS, default or preferred page size is 1M pageable for heap */
-							if ((pageSizeString.equals("1M") == true) && (pageTypeString.equals(XlpUtil.XLP_PAGE_TYPE_PAGEABLE))) {
-								defaultPageSize = ONE_MB;
-								defaultPageType = "pageable";
-							}
-						} else {
-							/* If there are more than one page size, that means default large page size is available */
-							isDefaultLargePageSizeSupported = true;
-							
-							if (defaultLargePageSize == null) {
-								defaultLargePageSize = line;
-							}
-							if (osName == OSName.AIX) {
-								if (line.equals("64K")) {
-									/* On AIX, default or preferred page size is 64K for heap */
-									defaultPageSize = 64 * ONE_KB;
-									defaultLargePageSize = line;
-								}
-								if (line.equals("16M")) {
-									defaultLargePageSize = line;
-								}
-							} else {
-								if (osName == OSName.LINUX)  {
-									if (osArch == OSArch.X86) {
-										if (line.equals("2M")) {
-											/* On Linux x86, default or preferred page size is 2M for heap */
-											defaultPageSize = 2 * ONE_MB;
-										}
-									} else if (osArch == OSArch.S390X) {
-										if (line.equals("1M")) {
-											/* On zLinux, default or preferred page size is 1M for heap */
-											defaultPageSize = ONE_MB;
-										}
-									}
-								}
-							}
-						}
-					}
-				} while (true);
-				
-				if (!error) {
-					if (isDefaultLargePageSizeSupported) {
-						if (osName == OSName.ZOS) {
-							System.out.println("INFO: Default large page size is " + defaultLargePageSize + " " + defaultLargePageType);
-						} else {
-							System.out.println("INFO: Default large page size is " + defaultLargePageSize);
-						}
-					} else {
-						System.out.println("INFO: Default large page size is not supported");
-					}
-				} else {
-					if (errorLine != null) {
-						System.out.println("Error in line: " + errorLine);
-					}
-					return false;
-				}
+
+		System.out.println("DEBUGTEST Label Stage Contents:" + outputList);
+		/* Check for improper end */
+		if (inputLine == null) {
+			System.out.println("Could not find either the unsupported message, or the large page header.");
+			return false;
+		}
+
+		/* Store Related Verbose output, up until the next verbose output is reached. */
+		while (((inputLine = in.readLine()) != null) && (!inputLine.contains("-X"))) {
+			outputList.add(inputLine);
+		}
+
+		/* Check for improper end of -Verbose:sizes */
+		if (inputLine == null) {
+			System.out.println("Could not find the proper end of verbose:sizes output.");
+			return false;
+		}
+		in.close();
+		System.out.println("DEBUGTEST Final Stage Contents:"  + outputList);
+
+		/* Extract Parameters */
+		int lineIndex = 0;
+
+		/* Extract Sign -XX:[+/-]UseLargePagesCodeCache */
+		inputLine = ((String)outputList.get(lineIndex)).trim();
+		boolean isLargePagesEnabled = inputLine.charAt(4) == '+' ? true : false;
+		lineIndex++;
+
+		/* Test State of LP */
+		if (xlpOption.getXlpState() != isLargePagesEnabled) {
+			System.out.println("Large Page State Failure. Expected:" + xlpOption.getXlpState() + " Got:" + isLargePagesEnabled);
+			return false;
+		}
+
+		/* Extract Page Size Used */
+		inputLine = ((String)outputList.get(lineIndex)).trim();
+		if (!inputLine.contains("large page size")) {
+			System.out.println("Found Malformed verbose:sizes output");
+			return false;
+		}
+		String pageSizeString = inputLine.substring(0, inputLine.indexOf(" ") - 1);
+		long pageSizeInVerbose = XlpUtil.pageSizeStringToLong(pageSizeString);
+		if (0 == pageSizeInVerbose) {
+			System.out.println("Found Malformed CodeCache Page Size. Page Size Found:" + inputLine);
+			return false;
+		}
+		lineIndex++;
+
+		/* Z/Os Only: Extract Page Type Used */
+		String pageTypeInVerbose = XlpUtil.XLP_PAGE_TYPE_NOT_USED;
+		if (osName == OSName.ZOS) {
+			inputLine = ((String)outputList.get(lineIndex)).trim();
+			if (!inputLine.contains("large page type")) {
+				System.out.println("Found Malformed verbose:sizes. Could not find large page type.");
+				return false;
+			}
+			pageTypeInVerbose = inputLine.substring(0, inputLine.indexOf(" ") - 1);
+			if (!(pageTypeInVerbose.equals("pageable") || pageTypeInVerbose.equals("nonpageable"))) {
+				System.out.println("Found Malformed CodeCache Page Type. Got:" + pageTypeInVerbose);
+				return false;
+			}
+			lineIndex++;
+		}
+
+		/* Extract Supported Page Sizes */
+		ArrayList<Pair<Long, String>> supportedPageSizesInVerbose = new ArrayList<>();
+		inputLine = ((String)outputList.get(lineIndex)).trim();
+		if (!inputLine.contains("available large pages for JIT code cache")) {
+			System.out.println("Found Malformed -Verbose:sizes output. Expected Large Pages for JIT code cache");
+			return false;
+		}
+		for (lineIndex++; lineIndex < outputList.size(); lineIndex++) {
+			inputLine = ((String)outputList.get(lineIndex)).trim();
+			String lpSize = inputLine.substring(0, inputLine.indexOf(" ") - 1);
+			String lpType = (osName != OSName.ZOS) ? "Unused" : inputLine.substring(inputLine.indexOf(" ") - 1, inputLine.length() - 1);
+			long pageSize = XlpUtil.pageSizeStringToLong(inputLine);
+			if (0 == pageSize) {
+				System.out.println("Found Malformed -Verbose:sizes output. Expected Large Page Size");
+				return false;
+			}
+			supportedPageSizesInVerbose.add(new Pair<>(pageSize, lpType));
+		}
+
+		/* Verify Extracted Supported Page Sizes */
+		if (!validateSupportedLargePagesInVerbose(supportedPageSizesInVerbose, component)) {
+			System.out.println("Extracted Supported Page Sizes within -verbose:sizes did not match arch spec");
+			return false;
+		}
+
+		Pair<Long, String> currentPage = new Pair<>(pageSizeInVerbose, pageTypeInVerbose);
+		/* Verify currently used page */
+		if (!validateLargePageInVerbose(currentPage, component)) {
+			System.out.println("Extracted In-Use Large Page did not match arch spec");
+			return false;
+		}
+
+		/* Large Pages Disabled, then large page should equal the preferred large page */
+		if (!xlpOption.getXlpState()) {
+			Pair<Long, String> preferredLargePage = component.getPreferredLargePage();
+			if (!preferredLargePage.equals(currentPage)) {
+				System.out.println("Large Pages is disabled, but size is the expected preferred page for the arch");
+				return false;
 			}
 			return true;
-		} else {
-			/* Add all output statements in a array list */
-			ArrayList<String> outputList = new ArrayList<String>();
-			String inputLine = null;
-			
-			do {
-				inputLine = in.readLine();
-				if (inputLine != null) {
-					outputList.add(inputLine);
-				}
-			} while(inputLine != null);
-			
-			XlpOption xlpOption = xlpOptionsList.get(commandIndex-1);
-			String option = xlpOption.getOption();
-			
-			if ((xlpOption.canFail() == false) || (isDefaultLargePageSizeSupported == true)) {
-				boolean pageSizeFound = false;
-				boolean pageTypeFound = false;
-				boolean requestedPageSizeFound = false;
-				boolean requestedPageTypeFound = false;
-				long requestedPageSize = 0;
-				String requestedPageType = null;
-				long pageSizeInVerbose = 0;
-				String pageTypeInVerbose = null;
-				Pattern pageSizeRegex = Pattern.compile(".*0x(([0-9]|[a-f]|[A-F])*).*");
-				Matcher pageSizeMatcher = null;
-				boolean isVerboseOutputPresent = false;
-				
-				for (String line : outputList) {
-					/* If large page size is supported, -verbose:sizes should display the page size and type used by JVM for heap allocation */
-					if (line.trim().startsWith("-Xlp:objectheap:pagesize=")) {
-						isVerboseOutputPresent = true;
-						/* Parse -Xlp:objectheap statement to get page size and type used by JVM for heap allocation */
-						line = line.trim();
-						/* Split around empty space and use first element to get page size and type */
-						String objectHeapInfo = line.split(" ")[0].trim();
-						int pageSizeBegin = objectHeapInfo.indexOf("=") + 1;
-						int pageSizeEnd = 0;
-						if (osName == OSName.ZOS) {
-							pageSizeEnd = objectHeapInfo.indexOf(",");
-							if (pageSizeEnd == -1) {
-								System.out.println("ERROR: Error in parsing -Xlp:codecache statement. Did not find ','. ");
-								error = true;
-								errorLine = line;
-								break;
-							}
-						} else {
-							pageSizeEnd = objectHeapInfo.length();
-						}
-						String pageSizeString = objectHeapInfo.substring(pageSizeBegin, pageSizeEnd);
-						pageSizeInVerbose = XlpUtil.pageSizeStringToLong(pageSizeString);
-						if (pageSizeInVerbose == 0) {
-							error = true;
-							errorLine = line;
-							break;
-						}
-						if (osName == OSName.ZOS) {
-							pageTypeInVerbose = objectHeapInfo.substring(pageSizeEnd + 1);
-						} else {
-							pageTypeInVerbose = XlpUtil.XLP_PAGE_TYPE_NOT_USED;
-						}
-						continue;
-					}
-					
-					if (line.indexOf("name=\"pageSize\"") != -1) {
-						pageSizeMatcher = pageSizeRegex.matcher(line);
-						if (pageSizeMatcher.matches()) {
-							pageSizeFound = true;
-							continue;
-						} else {
-							System.out.println("ERROR: Did not find valid \"pageSize\" value in verbose:gc output");
-							errorLine = line;
-							error = true;
-							break;
-						}
-					}
-					
-					if (line.indexOf("name=\"pageType\"") != -1) {
-						switch(osName) {
-						case AIX:
-						case LINUX:
-						case WINDOWS:
-							if (line.indexOf(XlpUtil.XLP_PAGE_TYPE_NOT_USED) != -1) {
-								pageTypeFound = true;
-							} else {
-								System.out.println("ERROR: Expected pageType \"not used\" not found in verbose:gc output\n");
-								errorLine = line;
-								error = true;
-							}
-							break;
-						case ZOS:
-							if ((line.indexOf(XlpUtil.XLP_PAGE_TYPE_NONPAGEABLE) != -1) || (line.indexOf(XlpUtil.XLP_PAGE_TYPE_PAGEABLE) != -1)) {
-								pageTypeFound = true;
-							} else {
-								System.out.println("ERROR: Expected pageType \"nonpageable\" or \"pageable\" not found in verbose:gc output\n");
-								errorLine = line;
-								error = true;
-							}
-							break;
-						default:
-							System.out.println("ERROR: Undefined OS. This test needs to know underlying operating system");
-							error = true;
-							break;
-						}
-						if (error) {
-							break;
-						} else {
-							continue;
-						}
-					}
-					
-					if (line.indexOf("name=\"requestedPageSize\"") != -1) {
-						pageSizeMatcher = pageSizeRegex.matcher(line);
-						if (pageSizeMatcher.matches()) {
-							/* Group 1 matches to first capturing group which is page size value */
-							String pageSizeString = pageSizeMatcher.group(1);
-							requestedPageSize = Long.parseLong(pageSizeString, 16);
-							requestedPageSizeFound = true;
-							continue;
-						} else {
-							System.out.println("ERROR: Did not find valid \"requestedPageSize\" value in verbose:gc output");
-							errorLine = line;
-							error = true;
-							break;
-						}
-					}
-					
-					if (line.indexOf("name=\"requestedPageType\"") != -1) {
-						switch(osName) {
-						case AIX:
-						case LINUX:
-						case WINDOWS:
-							if (line.indexOf(XlpUtil.XLP_PAGE_TYPE_NOT_USED) != -1) {
-								requestedPageType = XlpUtil.XLP_PAGE_TYPE_NOT_USED;
-								requestedPageTypeFound = true;
-							} else {
-								System.out.println("ERROR: Expected pageType \"not used\" not found in verbose:gc output\n");
-								errorLine = line;
-								error = true;
-							}
-							break;
-						case ZOS:
-							if (line.indexOf(XlpUtil.XLP_PAGE_TYPE_NONPAGEABLE) != -1) {
-								requestedPageType = XlpUtil.XLP_PAGE_TYPE_NONPAGEABLE;
-								requestedPageTypeFound = true;
-							} else if (line.indexOf(XlpUtil.XLP_PAGE_TYPE_PAGEABLE) != -1) {
-								requestedPageType = XlpUtil.XLP_PAGE_TYPE_PAGEABLE;
-								requestedPageTypeFound = true;
-							} else {
-								System.out.println("ERROR: Expected pageType \"nonpageable\" or \"pageable\" not found in verbose:gc output\n");
-								errorLine = line;
-								error = true;
-							}
-							break;
-						default:
-							System.out.println("ERROR: Undefined OS. This test needs to know underlying Operating System");
-							error = true;
-							break;
-						}
-						if (error) {
-							break;
-						} else {
-							continue;
-						}
-					}
-				}
-				
-				if (!error) {
-					if (pageSizeFound && pageTypeFound && requestedPageSizeFound && requestedPageTypeFound) {
-						System.out.println("INFO: verbose:gc contains required information\n");
-						if (isVerboseOutputPresent) {
-							if ((pageSizeInVerbose == requestedPageSize) && (pageTypeInVerbose.equals(requestedPageType))) {
-								System.out.println("INFO: Requested page size in GC logs matches with page size in -verbose:sizes output ");
-							} else {
-								System.out.println("ERROR: Requested page size in GC logs does not match with page size in -verbose:sizes output ");
-								System.out.println("\t Page size and type in verbose:sizes output: " + pageSizeInVerbose + " " + pageTypeInVerbose);
-								System.out.println("\t Requested page size and type in GC logs: " + requestedPageSize + " " + requestedPageType);
-								return false;
-							}
-							if ((option == null) || ((osName != OSName.ZOS) && (isDefaultLargePageSizeSupported == false))) {
-								/* (requestedPageSize, requestedPageType) should be same as (defaultPageSize, defaultPageType) if
-								 * 	- we are running without -Xlp option, or
-								 * 	- on non Z, default large page size is not supported and are running with -Xlp:objectheap option
-								 */
-								if ((defaultPageSize != requestedPageSize) || (!defaultPageType.equals(requestedPageType))) {
-									if (option == null) {
-										System.out.println("ERROR: Without -Xlp JVM should use default page size and type\n");
-									} else {
-										System.out
-												.println("ERROR: -Xlp:objectheap option on OS without large page support" +
-														"should use default page size and type\n"); 
-									}
-									System.out.println("\t Default page size and type: " + defaultPageSize + " " + defaultPageType);
-									System.out.println("\t Page size and type used by JVM: " + requestedPageSize + " " + requestedPageType);
-									return false;
-								} else {
-									if (option == null) {
-										System.out.println("INFO: JVM is using default page size in absence of -Xlp option");
-									} else {
-										System.out.println("INFO: JVM is using default page size as OS does not support large page sizes\n");
-									}
-								}
-							}
-						}
-						if (option != null) {
-							/* Check if warning message should be printed */
-							long optionPageSize = xlpOption.getPageSize();
-							if (optionPageSize != 0) {
-								String optionPageType = xlpOption.getPageType();
-								if ((optionPageSize != requestedPageSize) || (!optionPageType.equals(requestedPageType))) {
-									/* Warning message should have been printed */
-									boolean warningMsgFound = false;
-									for (String line: outputList) {
-										if (Pattern.matches(differentPageSizeWarningMsg, line)) {
-											warningMsgFound = true;
-											System.out.println("INFO: Found warning message for using different page size than specified\n");
-											break;
-										}
-									}
-									if (!warningMsgFound) {
-										/* Print error message */
-										System.out.println("ERROR: Page size and type in Xlp option is not same as used by JVM, but the expected warning message is not found");
-										System.out.println("\tPage size and page type in Xlp option: " + optionPageSize + " " + optionPageType);
-										System.out.println("\tPage size and page type used by JVM: " + requestedPageSize + " " + requestedPageType);
-										return false;
-									}
-								}
-							}
-						}
-						return true;
-					} else {
-						System.out
-								.println("ERROR: Did not find expected information in verbose:gc output");
-						System.out.println("ERROR: pageSizeFound: "
-								+ pageSizeFound + "pageTypeFound: "
-								+ pageTypeFound + " requestedPageSizeFound: "
-								+ requestedPageSizeFound
-								+ " requestedPageTypeFound: "
-								+ requestedPageTypeFound);
-						return false;
-					}
-				} else {
-					/* Print the output statement where error occurred */
-					if (errorLine != null) {
-						System.out.println("Error in line: " + errorLine);
-					}
-					return false;
-				}
-			} else {
-				/* Check for messages related to unsupported page size */
-				boolean unsupportedOptionMsgFound = false;
-				for (String line: outputList) {
-					if (line.indexOf(unsupportedOptionMsg) != -1) {
-						unsupportedOptionMsgFound = true;
-						System.out.println("INFO: Found message for unsupported option\n");
-						break;
-					}
-				}
-				if (!unsupportedOptionMsgFound) {
-					/* Print error message */
-					System.out.println("ERROR: Did not find message about unsupported -Xlp option");
-					return false;
-				}
-				return true;
-			}
 		}
+
+		/* Large Pages Enabled, and expecting Default Arch Page Size */
+		if (xlpOption.getExpectedPage() == null) {
+			if (!validateDefaultLargePage(currentPage, supportedPageSizesInVerbose, component)) {
+				System.out.println("System was not using default large page to match arch spec.");
+				return false;
+			}
+			return true;
+		}
+
+		/* Large Pages with specified page configuration */
+		Pair<Long, String> expectedPage = xlpOption.getExpectedPage();
+		return validateLargePage(currentPage, expectedPage, supportedPageSizesInVerbose);
 	}
 }

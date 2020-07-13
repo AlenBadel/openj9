@@ -37,6 +37,10 @@ public boolean isValidTestName(String testName)  {
 	if (!testName.endsWith("Test"))  {
 		return false;
 	}
+	//Debug: Disable all other tests
+	if (!testName.contains("j9vm.test.xlp"))
+		return false;
+	System.out.println("Including Test:" + testName);
 	return true;
 }
 

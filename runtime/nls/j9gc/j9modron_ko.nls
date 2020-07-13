@@ -605,6 +605,15 @@ J9NLS_GC_VERB_SIZES_XLP.user_response=None
 
 # END NON-TRANSLATABLE
 
+# This is a GC option outpuit by -verbose:sizes
+J9NLS_GC_VERB_ENABLE_XLP=state of large pages on object heap
+# START NON-TRANSLATABLE
+J9NLS_GC_VERB_ENABLE_XLP.explanation=Explains the -XX:[+/-]UseLargePagesObjectHeap option is specified
+J9NLS_GC_VERB_ENABLE_XLP.system_action=None
+J9NLS_GC_VERB_ENABLE_XLP.user_response=None
+
+# END NON-TRANSLATABLE
+
 J9NLS_GC_VERB_SIZES_AVAILABLE_XLP=\uc0ac\uc6a9 \uac00\ub2a5\ud55c \ud070 \ud398\uc774\uc9c0 \ud06c\uae30:
 # START NON-TRANSLATABLE
 J9NLS_GC_VERB_SIZES_AVAILABLE_XLP.explanation=When J9NLS_GC_OPTIONS_LARGE_PAGE_SIZE_NOT_SUPPORTED is displayed, it will be followed by this message and then a list of supported sizes
@@ -801,88 +810,6 @@ J9NLS_GC_OPTIONS_LARGE_PAGE_SIZE_NOT_SUPPORTED_WITH_PAGETYPE.sample_input_3=page
 J9NLS_GC_OPTIONS_LARGE_PAGE_SIZE_NOT_SUPPORTED_WITH_PAGETYPE.sample_input_4=4096
 J9NLS_GC_OPTIONS_LARGE_PAGE_SIZE_NOT_SUPPORTED_WITH_PAGETYPE.sample_input_5=K
 J9NLS_GC_OPTIONS_LARGE_PAGE_SIZE_NOT_SUPPORTED_WITH_PAGETYPE.sample_input_6=pageable
-
-# END NON-TRANSLATABLE
-
-J9NLS_GC_OPTIONS_XLP_PARSING_ERROR='-Xlp' \uc635\uc158 \uad6c\ubb38 \ubd84\uc11d \uc911\uc5d0 \uc624\ub958\uac00 \ubc1c\uc0dd\ud588\uc2b5\ub2c8\ub2e4.
-# START NON-TRANSLATABLE
-J9NLS_GC_OPTIONS_XLP_PARSING_ERROR.explanation=An error occurred in parsing -Xlp option
-J9NLS_GC_OPTIONS_XLP_PARSING_ERROR.system_action=The JVM will terminate
-J9NLS_GC_OPTIONS_XLP_PARSING_ERROR.user_response=Correct the -Xlp option syntax and retry
-
-# END NON-TRANSLATABLE
-
-J9NLS_GC_OPTIONS_XLP_LARGE_PAGE_NOT_SUPPORTED=\uc2dc\uc2a4\ud15c \uad6c\uc131\uc5d0\uc11c \uc694\uccad\ub41c %1$zu%2$s\uc758 \ud070 \ud398\uc774\uc9c0 \ud06c\uae30\ub97c \uc9c0\uc6d0\ud558\uc9c0 \uc54a\uc2b5\ub2c8\ub2e4.
-# START NON-TRANSLATABLE
-J9NLS_GC_OPTIONS_XLP_LARGE_PAGE_NOT_SUPPORTED.explanation=The specified large page size is not supported by the operating system
-J9NLS_GC_OPTIONS_XLP_LARGE_PAGE_NOT_SUPPORTED.system_action=The JVM will terminate
-J9NLS_GC_OPTIONS_XLP_LARGE_PAGE_NOT_SUPPORTED.user_response=Adjust the -Xlp option to specify page size supported by the operating system
-J9NLS_GC_OPTIONS_XLP_LARGE_PAGE_NOT_SUPPORTED.sample_input_1=4096
-J9NLS_GC_OPTIONS_XLP_LARGE_PAGE_NOT_SUPPORTED.sample_input_2=K
-
-# END NON-TRANSLATABLE
-
-J9NLS_GC_OPTIONS_XLP_LARGE_PAGE_NOT_SUPPORTED_WITH_PAGETYPE=\uc2dc\uc2a4\ud15c \uad6c\uc131\uc5d0\uc11c \uc694\uccad\ub41c %1$zu%2$s %3$s\uc758 \ud070 \ud398\uc774\uc9c0 \ud06c\uae30\ub97c \uc9c0\uc6d0\ud558\uc9c0 \uc54a\uc2b5\ub2c8\ub2e4.
-# START NON-TRANSLATABLE
-J9NLS_GC_OPTIONS_XLP_LARGE_PAGE_NOT_SUPPORTED_WITH_PAGETYPE.explanation=The specified large page size is not supported by the operating system
-J9NLS_GC_OPTIONS_XLP_LARGE_PAGE_NOT_SUPPORTED_WITH_PAGETYPE.system_action=The JVM will terminate
-J9NLS_GC_OPTIONS_XLP_LARGE_PAGE_NOT_SUPPORTED_WITH_PAGETYPE.user_response=Adjust the -Xlp option to specify page size supported by the operating system
-J9NLS_GC_OPTIONS_XLP_LARGE_PAGE_NOT_SUPPORTED_WITH_PAGETYPE.sample_input_1=4096
-J9NLS_GC_OPTIONS_XLP_LARGE_PAGE_NOT_SUPPORTED_WITH_PAGETYPE.sample_input_2=K
-J9NLS_GC_OPTIONS_XLP_LARGE_PAGE_NOT_SUPPORTED_WITH_PAGETYPE.sample_input_3=pageable
-
-# END NON-TRANSLATABLE
-
-J9NLS_GC_OPTIONS_XLP_PAGESIZE_NOT_FIRST_PARAMETER='%1$s'\uc774(\uac00) '%2$s' \uc635\uc158\uc5d0 \uccab \ubc88\uc9f8 \ub9e4\uac1c\ubcc0\uc218\ub85c \uc9c0\uc815\ub418\uc9c0 \uc54a\uc558\uc2b5\ub2c8\ub2e4.
-# START NON-TRANSLATABLE
-J9NLS_GC_OPTIONS_XLP_PAGESIZE_NOT_FIRST_PARAMETER.explanation=Either a required parameter is not specified, or it is not in specified in required order
-J9NLS_GC_OPTIONS_XLP_PAGESIZE_NOT_FIRST_PARAMETER.system_action=The JVM will terminate
-J9NLS_GC_OPTIONS_XLP_PAGESIZE_NOT_FIRST_PARAMETER.user_response=Modify parameters of -Xlp option as suggested by the error message
-J9NLS_GC_OPTIONS_XLP_PAGESIZE_NOT_FIRST_PARAMETER.sample_input_1=pagesize=<size>
-J9NLS_GC_OPTIONS_XLP_PAGESIZE_NOT_FIRST_PARAMETER.sample_input_2=-Xlp:objectheap:
-
-# END NON-TRANSLATABLE
-
-J9NLS_GC_OPTIONS_XLP_INCOMPLETE_OPTION='%1$s' \uc635\uc158\uc774 \uc644\ub8cc\ub418\uc9c0 \uc54a\uc558\uc2b5\ub2c8\ub2e4. '%2$s' \ub9e4\uac1c\ubcc0\uc218\ub97c \uc9c0\uc815\ud574\uc57c \ud569\ub2c8\ub2e4.
-# START NON-TRANSLATABLE
-J9NLS_GC_OPTIONS_XLP_INCOMPLETE_OPTION.explanation=Specified option is not complete, it requires more parameters
-J9NLS_GC_OPTIONS_XLP_INCOMPLETE_OPTION.system_action=The JVM will terminate
-J9NLS_GC_OPTIONS_XLP_INCOMPLETE_OPTION.user_response=Specify all the required parameter for -Xlp option
-J9NLS_GC_OPTIONS_XLP_INCOMPLETE_OPTION.sample_input_1=-Xlp:objectheap:
-J9NLS_GC_OPTIONS_XLP_INCOMPLETE_OPTION.sample_input_2=[non]pageable
-
-# END NON-TRANSLATABLE
-
-J9NLS_GC_OPTIONS_XLP_UNRECOGNIZED_OPTION=\uc2dc\uc2a4\ud15c \uad6c\uc131\uc774 '-Xlp' \uc635\uc158\uc5d0\uc11c '%.*s' \ub9e4\uac1c\ubcc0\uc218\ub97c \uc9c0\uc6d0\ud558\uc9c0 \uc54a\uc2b5\ub2c8\ub2e4.
-# START NON-TRANSLATABLE
-J9NLS_GC_OPTIONS_XLP_UNRECOGNIZED_OPTION.explanation=Specified parameter is not recognized in -Xlp option
-J9NLS_GC_OPTIONS_XLP_UNRECOGNIZED_OPTION.system_action=The JVM will terminate
-J9NLS_GC_OPTIONS_XLP_UNRECOGNIZED_OPTION.user_response=Remove the unrecognized parameter from -Xlp option
-J9NLS_GC_OPTIONS_XLP_UNRECOGNIZED_OPTION.sample_input_1=3
-J9NLS_GC_OPTIONS_XLP_UNRECOGNIZED_OPTION.sample_input_2=abc
-
-# END NON-TRANSLATABLE
-
-J9NLS_GC_OPTIONS_XLP_EXTRA_COMMA='-Xlp' \uc635\uc158\uc5d0\uc11c \ucd94\uac00 \uc27c\ud45c \ubb38\uc790\ub97c \ubc1c\uacac\ud588\uc2b5\ub2c8\ub2e4. \uc774\ub97c \ubb34\uc2dc\ud569\ub2c8\ub2e4.
-# START NON-TRANSLATABLE
-J9NLS_GC_OPTIONS_XLP_EXTRA_COMMA.explanation=Extra comma characters are discovered in '-Xlp' option
-J9NLS_GC_OPTIONS_XLP_EXTRA_COMMA.system_action=The JVM will ignore extra comma characters
-J9NLS_GC_OPTIONS_XLP_EXTRA_COMMA.user_response=Remove extra commas from -Xlp option
-
-# END NON-TRANSLATABLE
-
-J9NLS_GC_OPTIONS_XLP_PAGE_NOT_SUPPORTED=%1$s\uc5d0\uc11c \uc0ac\uc6a9\ud558\uae30 \uc704\ud574 \uc694\uccad\ub41c \ud398\uc774\uc9c0 \ud06c\uae30 %2$zu%3$s%4$s\uc740(\ub294) \uc9c0\uc6d0\ub418\uc9c0 \uc54a\ub294 \ud398\uc774\uc9c0 \ud06c\uae30\uc785\ub2c8\ub2e4. \ub300\uc2e0 %5$zu%6$s%7$s\uc744(\ub97c) \uc0ac\uc6a9\ud558\uc2ed\uc2dc\uc624.
-# START NON-TRANSLATABLE
-J9NLS_GC_OPTIONS_XLP_PAGE_NOT_SUPPORTED.explanation=The specified page size is not supported by the operating system. A suitable page size will be used.
-J9NLS_GC_OPTIONS_XLP_PAGE_NOT_SUPPORTED.system_action=The JVM will start using a different page size instead of the specified size
-J9NLS_GC_OPTIONS_XLP_PAGE_NOT_SUPPORTED.user_response=Adjust the -Xlp:gc: options to specify page size supported by the operating system
-J9NLS_GC_OPTIONS_XLP_PAGE_NOT_SUPPORTED.sample_input_1=gcmetadata
-J9NLS_GC_OPTIONS_XLP_PAGE_NOT_SUPPORTED.sample_input_2=4096
-J9NLS_GC_OPTIONS_XLP_PAGE_NOT_SUPPORTED.sample_input_3=K
-J9NLS_GC_OPTIONS_XLP_PAGE_NOT_SUPPORTED.sample_input_4=pageable
-J9NLS_GC_OPTIONS_XLP_PAGE_NOT_SUPPORTED.sample_input_5=4096
-J9NLS_GC_OPTIONS_XLP_PAGE_NOT_SUPPORTED.sample_input_6=K
-J9NLS_GC_OPTIONS_XLP_PAGE_NOT_SUPPORTED.sample_input_7=pageable
 
 # END NON-TRANSLATABLE
 

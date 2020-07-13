@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2001, 2012 IBM Corp. and others
+ * Copyright (c) 2001, 2020 IBM Corp. and others
  *
  * This program and the accompanying materials are made available under
  * the terms of the Eclipse Public License 2.0 which accompanies this
@@ -19,18 +19,10 @@
  *
  * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0 OR GPL-2.0 WITH Classpath-exception-2.0 OR LicenseRef-GPL-2.0 WITH Assembly-exception
  *******************************************************************************/
-
 package j9vm.test.xlp;
 
-/**
- * This is a dummy class used by XlpOptionsTestRunner.
- * 
- * @author Ashutosh Mehra
- */
 public class XlpOptionsTest {
-	public static String TEST_OUTPUT = "A message from XlpOptionsTest class";
-	
-	public static void main(String[] args) {
-		System.err.println(TEST_OUTPUT);
+    public static void main(String[] args) {
+		System.out.println("Starting XlpTest");
 	}
 }

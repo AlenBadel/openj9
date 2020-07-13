@@ -131,39 +131,6 @@ static const char *optionGroupConMeter[] = {
 #endif /* J9VM_GC_LARGE_OBJECT_AREA) */
 
 /**
- * @name Xlp error state group.
- *
- * @{
- */
-struct XlpError {
-	const char *xlpOptionErrorString;
-	size_t xlpOptionErrorStringSize;
-	const char *xlpMissingOptionString;
-	bool extraCommaWarning;
-};
-
-typedef enum {
-	XLP_NO_ERROR = 0,
-	XLP_OPTION_NOT_SUPPORTED,
-	XLP_MEM_NAN,
-	XLP_MEM_OVERFLOW,
-	XLP_PAGE_SIZE_INCORRECT,
-	XLP_INCOMPLETE_OPTION,
-	XLP_LARGE_PAGE_NOT_SUPPORTED,
-	XLP_PARAMETER_NOT_RECOGNIZED
-} XlpErrorState;
-
-typedef enum {
-	PARSING_FIRST_OPTION = 1,
-	PARSING_OPTION,
-	PARSING_COMMA,
-	PARSING_ERROR
-} parsingStates;
-/**
- * @}
- */
-
-/**
  * Find, consume and record an option from the argument list.
  * Given an option string and the match type, find the argument in the to be consumed list.
  * If found, consume it.
@@ -351,331 +318,34 @@ option_set_group(J9JavaVM *vm, const char **optionGroup, IDATA *optionGroupIndex
 }
 
 /**
- * Parse sub options for -Xlp:xxxxx:
- */
-static XlpErrorState
-xlpSubOptionsParser(J9JavaVM *vm, IDATA xlpIndex, XlpError *xlpError, UDATA *requestedPageSize, UDATA *requestedPageFlags, bool *strict, bool *warn)
-{
-	/* -Xlp:objectheap: found and it is most right option, so it is not overwritten by -Xlp<size> */
-	char *optionsString = NULL;
-	char *scan_limit = NULL;
-
-	/* start parsing with option */
-	parsingStates parsingState = PARSING_FIRST_OPTION;
-	UDATA optionNumber = 1;
-	char *previousOption = NULL;
-	char *errorString = NULL;
-
-	UDATA pageSizeHowMany = 0;
-#if	defined(J9ZOS390)
-	UDATA pageableHowMany = 0;
-	UDATA pageableOptionNumber = 0;
-	UDATA nonPageableHowMany = 0;
-	UDATA nonPageableOptionNumber = 0;
-#endif /* defined(J9ZOS390) */
-
-	/* Reset error state from parsing of previous -Xlp<size> option */
-	XlpErrorState xlpErrorState = XLP_NO_ERROR;
-
-	xlpError->xlpOptionErrorString = NULL;
-	xlpError->xlpOptionErrorStringSize = 0;
-	xlpError->xlpMissingOptionString = NULL;
-	xlpError->extraCommaWarning  = false;
-
-	/* Get pointer to entire option */
-	GET_OPTION_OPTION(xlpIndex, ':', ':', &optionsString);
-
-	/* optionsString can not be NULL here, though it may point to null ('\0') character */
-	scan_limit = optionsString + strlen(optionsString);
-
-	/*
-	 * parsing -Xlp:objectheap: for options
-	 *
-	 * reporting general parsing problems (bad formed and unknown options)
-	 * recognize cases where extra commas are entered to print warning after if necessary
-	 */
-
-	while (optionsString < scan_limit) {
-		if (try_scan(&optionsString, ",")) {
-			/* Comma separator is discovered */
-			switch (parsingState) {
-			case PARSING_FIRST_OPTION:
-				/* leading comma - ignored but warning required */
-				xlpError->extraCommaWarning = true;
-				parsingState = PARSING_OPTION;
-				break;
-			case PARSING_OPTION:
-				/* more then one comma - ignored but warning required */
-				xlpError->extraCommaWarning = true;
-				break;
-			case PARSING_COMMA:
-				/* expecting for comma here, next should be an option*/
-				parsingState = PARSING_OPTION;
-				/* next option number */
-				optionNumber += 1;
-				break;
-			case PARSING_ERROR:
-			default:
-				/* must be unreachable states */
-				Assert_MM_unreachable();
-				break;
-			}
-		} else {
-			/* Comma separator has not been found. so */
-			switch (parsingState) {
-			case PARSING_FIRST_OPTION:
-				/* still looking for parsing of first option - nothing to do */
-				parsingState = PARSING_OPTION;
-				break;
-			case PARSING_OPTION:
-				/* Can not recognize an option case */
-				Assert_MM_true(previousOption == optionsString);
-				errorString = optionsString;
-				parsingState = PARSING_ERROR;
-				break;
-			case PARSING_COMMA:
-				/* can not find comma after option - so this is something unrecognizable at the end of known option */
-				errorString = previousOption;
-				parsingState = PARSING_ERROR;
-				break;
-			case PARSING_ERROR:
-			default:
-				/* must be unreachable states */
-				Assert_MM_unreachable();
-				break;
-			}
-		}
-
-		if (PARSING_ERROR == parsingState) {
-			Assert_MM_true(NULL != errorString);
-
-			xlpErrorState =  XLP_PARAMETER_NOT_RECOGNIZED;
-			xlpError->xlpOptionErrorString = errorString;
-
-			/* try to find comma to isolate unrecognized option */
-			char *commaLocation = strchr(errorString, ',');
-			if (NULL != commaLocation) {
-				/* comma found */
-				xlpError->xlpOptionErrorStringSize = (size_t)(commaLocation - errorString);
-			} else {
-				/* comma not found - print to the end of the string */
-				xlpError->xlpOptionErrorStringSize = strlen(errorString);
-			}
-
-			return xlpErrorState;
-		}
-
-		/* check that something was parsed or previousOption still NULL, otherwise we are in dead loop */
-		Assert_MM_true((NULL == previousOption) || (previousOption != optionsString));
-
-		previousOption = optionsString;
-
-		if (try_scan(&optionsString, "pagesize=")) {
-			/* try to get memory value */
-			if (!scan_udata_memory_size_helper(vm, &optionsString, requestedPageSize, "pagesize=")) {
-				/* size is not formed properly */
-				xlpErrorState = XLP_PAGE_SIZE_INCORRECT;
-				return xlpErrorState;
-			}
-
-			pageSizeHowMany += 1;
-
-			parsingState = PARSING_COMMA;
-		} else if (try_scan(&optionsString, "pageable")) {
-#if	defined(J9ZOS390)
-			pageableHowMany += 1;
-			pageableOptionNumber = optionNumber;
-#endif /* defined(J9ZOS390) */
-			parsingState = PARSING_COMMA;
-		} else if (try_scan(&optionsString, "nonpageable")) {
-#if	defined(J9ZOS390)
-			nonPageableHowMany += 1;
-			nonPageableOptionNumber = optionNumber;
-#endif /* defined(J9ZOS390) */
-			parsingState = PARSING_COMMA;
-		} else if ((NULL != strict) && try_scan(&optionsString, "strict")) {
-			*strict = true;
-			parsingState = PARSING_COMMA;
-		} else if ((NULL != warn) && try_scan(&optionsString, "warn")) {
-			*warn = true;
-			parsingState = PARSING_COMMA;
-		}
-	}
-
-	/*
-	 * post-parse check for trailing comma(s)
-	 */
-	switch (parsingState) {
-	/* if loop ended in one of these two states extra comma warning required */
-	case PARSING_FIRST_OPTION:
-	case PARSING_OPTION:
-		/* trailing comma(s) or comma(s) alone */
-		xlpError->extraCommaWarning = true;
-		break;
-	case PARSING_COMMA:
-		/* loop ended at comma search state - do nothing */
-		break;
-	case PARSING_ERROR:
-	default:
-		/* must be unreachable states */
-		Assert_MM_unreachable();
-		break;
-	}
-
-	/* --- analyze correctness of entered options --- */
-	/*
-	 * pagesize = <size>
-	 *  - this options must be specified for all platforms
-	 */
-	if (0 == pageSizeHowMany) {
-		/* error: pagesize= must be specified */
-		xlpErrorState = XLP_INCOMPLETE_OPTION;
-		xlpError->xlpOptionErrorString = "-Xlp:objectheap:";
-		xlpError->xlpMissingOptionString = "pagesize=";
-		return xlpErrorState;
-	}
-
-#if defined(J9ZOS390)
-	/*
-	 *  [non]pageable
-	 *  - this option must be specified for Z platforms
-	 */
-	if ((0 == pageableHowMany) && (0 == nonPageableHowMany)) {
-		/* error: [non]pageable not found */
-		xlpErrorState = XLP_INCOMPLETE_OPTION;
-		xlpError->xlpOptionErrorString = "-Xlp:objectheap:";
-		xlpError->xlpMissingOptionString = "[non]pageable";
-		return xlpErrorState;
-	}
-
-	if (pageableOptionNumber > nonPageableOptionNumber) {
-		/* pageable is most right */
-		*requestedPageFlags = J9PORT_VMEM_PAGE_FLAG_PAGEABLE;
-	} else {
-		/* nonpageable is most right */
-		*requestedPageFlags = J9PORT_VMEM_PAGE_FLAG_FIXED;
-	}
-#endif /* defined(J9ZOS390) */
-
-	return xlpErrorState;
-}
-
-/**
- * Find and consume -Xlp option(s) from the argument list.
+ * Obtain Large Page Info from VM, verify and configure large pages.
  *
  * @param vm pointer to Java VM structure
  *
- * @return false if the option(s) are not consumed properly, true on success.
+ * @return false if large pages are not configured properly, true on success.
  */
 static bool
-gcParseXlpOption(J9JavaVM *vm)
+gcConfigureLargePageOptions(J9JavaVM *vm)
 {
+	printf("Entered gcConfigureLargePageOptions\n");
 	MM_GCExtensions *extensions = MM_GCExtensions::getExtensions(vm);
-	bool rc = false;
-	XlpErrorState xlpErrorState = XLP_NO_ERROR;
-	XlpError xlpError = {NULL,		/* xlpOptionErrorString */
-			                0,		/* xlpOptionErrorStringSize */
-			                NULL,	/* xlpMissingOptionString */
-			                false};	/* extraCommaWarning */
-	IDATA xlpIndex = -1;
-	IDATA xlpMemIndex = -1;
-	IDATA xlpObjectHeapIndex = -1;
-	UDATA requestedPageSize = 0;
-	UDATA requestedPageFlags = J9PORT_VMEM_PAGE_FLAG_NOT_USED;
 	PORT_ACCESS_FROM_JAVAVM(vm);
+	J9LargePageOptionsInfo *lpInfo = &(vm->largePageOptionInfo);
 
-	/* Parse -Xlp option. 
-	 * -Xlp option enables large pages with the default large page size, but will not
-	 * override any -Xlp<size> or -Xlp:objectheap:pagesize=<size> option.
-	 */
-	xlpIndex = option_set(vm, "-Xlp", EXACT_MATCH);
-	if (-1 != xlpIndex) {
-		UDATA defaultLargePageSize = 0;
-		UDATA defaultLargePageFlags = J9PORT_VMEM_PAGE_FLAG_NOT_USED;
-		j9vmem_default_large_page_size_ex(0, &defaultLargePageSize, &defaultLargePageFlags);
-		if (0 != defaultLargePageSize) {
-			extensions->requestedPageSize = defaultLargePageSize;
-			extensions->requestedPageFlags = defaultLargePageFlags;
-		} else {
-			xlpErrorState = XLP_OPTION_NOT_SUPPORTED;
-			xlpError.xlpOptionErrorString = "-Xlp";
-			/* Cannot report error message here,
-			 * as we may find a valid "-Xlp:objectheap" that overwrites this option
-			 */
-		}
+	printf("GC isEnabledForObjectHeap:%d pageSizeForObjectHeap:%ld\n", lpInfo->isEnabledForObjectHeap, lpInfo->pageSizeForObjectHeap);
+
+	/* Large Pages are not enabled */
+	if (FALSE == lpInfo->isEnabledForObjectHeap) {
+		return true;
 	}
 
-	/* Parse -Xlp<size> option. It overrides -Xlp option. */
-	xlpMemIndex = FIND_AND_CONSUME_ARG(EXACT_MEMORY_MATCH, "-Xlp", NULL);
-	if (-1 != xlpMemIndex) {
-		/* Reset error state from parsing of previous -Xlp option */
-		xlpErrorState = XLP_NO_ERROR;
-
-		/* No need to set requestedPageFlags explicitly. We use the default value J9PORT_VMEM_PAGE_FLAG_NOT_USED */
-
-		/* If the machine does not support large pages, we may fail.
-		 * Page flags for default large page size is not required, just pass NULL.
-		 */
-		j9vmem_default_large_page_size_ex(0, &requestedPageSize, NULL);
-		if (0 != requestedPageSize) {
-			IDATA result = option_set_to_opt(vm, "-Xlp", &xlpMemIndex, EXACT_MEMORY_MATCH, &requestedPageSize);
-			if (OPTION_OK != result) {
-				/* this -Xlp option must be formed properly even it might be overwritten by "-Xlp:objectheap" */
-				if (OPTION_MALFORMED == result) {
-					xlpErrorState = XLP_MEM_NAN;
-				} else {
-					xlpErrorState = XLP_MEM_OVERFLOW;
-				}
-				goto _reportXlpError;
-			}
-		} else {
-			xlpErrorState = XLP_OPTION_NOT_SUPPORTED;
-			xlpError.xlpOptionErrorString = "-Xlp";
-			/* Cannot report error message here, as we may find a valid "-Xlp:objectheap" that overwrites this option */
-		}
-	}
-
-	/* Parse -Xlp:objectheap:pagesize=<size> option.
-	 * It overrides -Xlp option.
-	 * It also overrides -Xlp<size> option if it appears to the right of -Xlp<size>
-	 *
-	 * The proper formed -Xlp:objectheap: option must be (in strict order):
-	 * 	For all non-Z platforms:
-	 * 		-Xlp:objectheap:pagesize=<size> or
-	 * 		-Xlp:objectheap:pagesize=<size>,pageable or
-	 * 		-Xlp:objectheap:pagesize=<size>,nonpageable
-	 *
-	 * 	For Z platforms
-	 *		-Xlp:objectheap:pagesize=<size>,pageable or
-	 *		-Xlp:objectheap:pagesize=<size>,nonpageable
-	 */
-	xlpObjectHeapIndex = FIND_AND_CONSUME_ARG(STARTSWITH_MATCH, "-Xlp:objectheap:", NULL);
-
-	/* so if -Xlp:objectheap: is specified */
-	if ((-1 != xlpObjectHeapIndex) && (xlpObjectHeapIndex > xlpMemIndex)) {
-		/*
-		 * Parse sub options for -Xlp:objectheap:
-		 */
-		xlpErrorState = xlpSubOptionsParser(vm, xlpObjectHeapIndex, &xlpError, &requestedPageSize, &requestedPageFlags, &extensions->largePageFailOnError, &extensions->largePageWarnOnError);
-
-		if (xlpError.extraCommaWarning) {
-			/* print extra comma ignored warning */
-			j9nls_printf(PORTLIB, J9NLS_INFO, J9NLS_GC_OPTIONS_XLP_EXTRA_COMMA);
-		}
-	}
-
-	/* If there is a pending error state, report it now */
-	if (XLP_NO_ERROR != xlpErrorState) {
-		goto _reportXlpError;
-	}
-
-	/* If a valid -Xlp<size> or -Xlp:objectheap:pagesize=<size> is present, check if the requested page size is supported */
-	/* We don't need to check error state here - we did goto for all errors */
-	if ((-1 != xlpMemIndex) || (-1 != xlpObjectHeapIndex)) {
-		UDATA pageSize = requestedPageSize;
-		UDATA pageFlags = requestedPageFlags;
+	/* Large Pages are enabled, and size is specified */
+	if (0 != lpInfo->pageSizeForObjectHeap) {
+		UDATA pageSize = lpInfo->pageSizeForObjectHeap;
+		UDATA pageFlags = lpInfo->pageTypeForObjectHeap;
 		BOOLEAN isRequestedSizeSupported = FALSE;
 
+		/* Verify Requested Size */
 		IDATA result = j9vmem_find_valid_page_size(0, &pageSize, &pageFlags, &isRequestedSizeSupported);
 
 		/*
@@ -692,12 +362,12 @@ gcParseXlpOption(J9JavaVM *vm)
 			const char *oldQualifier, *newQualifier;
 			const char *oldPageType = NULL;
 			const char *newPageType = NULL;
-			UDATA oldSize = requestedPageSize;
+			UDATA oldSize = lpInfo->pageSizeForObjectHeap;
 			UDATA newSize = pageSize;
 			qualifiedSize(&oldSize, &oldQualifier);
 			qualifiedSize(&newSize, &newQualifier);
-			if (0 == (J9PORT_VMEM_PAGE_FLAG_NOT_USED & requestedPageFlags)) {
-				oldPageType = getPageTypeString(requestedPageFlags);
+			if (0 == (J9PORT_VMEM_PAGE_FLAG_NOT_USED & lpInfo->pageTypeForObjectHeap)) {
+				oldPageType = getPageTypeString(lpInfo->pageTypeForObjectHeap);
 			}
 			if (0 == (J9PORT_VMEM_PAGE_FLAG_NOT_USED & pageFlags)) {
 				newPageType = getPageTypeString(pageFlags);
@@ -716,60 +386,22 @@ gcParseXlpOption(J9JavaVM *vm)
 				}
 			}
 		}
-	}
-
-_reportXlpError:
-	/* If error occurred during parsing of -Xlp options, report it here. */
-	if (XLP_NO_ERROR != xlpErrorState) {
-		/* parsing failed, return false */
-		rc = false;
-
-		switch(xlpErrorState) {
-		case XLP_OPTION_NOT_SUPPORTED:
-			j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_GC_OPTIONS_SYSTEM_CONFIG_OPTION_NOT_SUPPORTED, xlpError.xlpOptionErrorString);
-			break;
-		case XLP_MEM_NAN:
-			j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_GC_OPTIONS_MUST_BE_NUMBER, "-Xlp");
-			break;
-		case XLP_MEM_OVERFLOW:
-			j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_GC_OPTIONS_VALUE_OVERFLOWED, "-Xlp");
-			break;
-		case XLP_PAGE_SIZE_INCORRECT:
-			j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_GC_OPTIONS_INCORRECT_MEMORY_SIZE, "-Xlp:objectheap:pagesize=<size>");
-			break;
-		case XLP_INCOMPLETE_OPTION:
-			j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_GC_OPTIONS_XLP_INCOMPLETE_OPTION, xlpError.xlpOptionErrorString, xlpError.xlpMissingOptionString);
-			break;
-		case XLP_LARGE_PAGE_NOT_SUPPORTED:
-		{
-			const char *qualifier = NULL;
-			const char *pageType = NULL;
-			UDATA pageSize = requestedPageSize;
-			qualifiedSize(&pageSize, &qualifier);
-			if (0 == (J9PORT_VMEM_PAGE_FLAG_NOT_USED & requestedPageFlags)) {
-				pageType = getPageTypeString(requestedPageFlags);
-			}
-			if (NULL == pageType) {
-				j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_GC_OPTIONS_XLP_LARGE_PAGE_NOT_SUPPORTED, pageSize, qualifier);
-			} else {
-				j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_GC_OPTIONS_XLP_LARGE_PAGE_NOT_SUPPORTED_WITH_PAGETYPE, pageSize, qualifier, pageType);
-			}
-
-			break;
-		}
-		case XLP_PARAMETER_NOT_RECOGNIZED:
-			j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_GC_OPTIONS_XLP_UNRECOGNIZED_OPTION, xlpError.xlpOptionErrorStringSize, xlpError.xlpOptionErrorString);
-			break;
-		default:
-			j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_GC_OPTIONS_XLP_PARSING_ERROR);
-			break;
-		}
 	} else {
-		rc = true;
+		/* Set System Default Large Page Size */
+		UDATA defaultLargePageSize = 0;
+		UDATA defaultLargePageFlags = J9PORT_VMEM_PAGE_FLAG_NOT_USED;
+		j9vmem_default_large_page_size_ex(0, &defaultLargePageSize, &defaultLargePageFlags);
+		if (0 != defaultLargePageSize) {
+			extensions->requestedPageSize = defaultLargePageSize;
+			extensions->requestedPageFlags = defaultLargePageFlags;
+		} else {
+			j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_GC_OPTIONS_SYSTEM_CONFIG_OPTION_NOT_SUPPORTED, "-XX:+UseLargePages, or -XX:+UseLargePagesObjectHeap");
+			return false;
+		}
 	}
-
-	return rc;
+	return true;
 }
+
 /**
  * Consume Sovereign arguments.
  *
@@ -789,7 +421,7 @@ gcParseSovereignArguments(J9JavaVM *vm)
 	IDATA index = -1;
 	PORT_ACCESS_FROM_JAVAVM(vm);
 
-	if (!gcParseXlpOption(vm)) {
+	if (!gcConfigureLargePageOptions(vm)) {
 		goto _error;
 	}
 
