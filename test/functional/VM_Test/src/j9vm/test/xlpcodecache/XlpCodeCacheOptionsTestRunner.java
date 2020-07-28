@@ -373,16 +373,19 @@ public class XlpCodeCacheOptionsTestRunner extends Runner {
 			byte[] stdOut = inCollector.getOutputAsByteArray();
 			byte[] stdErr = errCollector.getOutputAsByteArray();
 
-			if (!analyze(stdErr))
+			if (!analyze(stdOut, stdErr))
 				return false;
 		}
 		return true;
 	}
 	
-	public boolean analyze(byte[] stdErr) {
+	public boolean analyze(byte[] stdOut, byte[] stdErr) {
 		BufferedReader in = new BufferedReader(new InputStreamReader(
 				new ByteArrayInputStream(stdErr)));
+		BufferedReader stdOutIn = new BufferedReader(new InputStreamReader(
+				new ByteArrayInputStream(stdOut)));
 		ArrayList<String> outputList = new ArrayList<String>();
+		ArrayList<String> stdOutputList = new ArrayList<String>();
 		String inputLine = null;
 		long pageSizeInVerbose = 0;
 		String pageTypeInVerbose = null;
@@ -408,6 +411,22 @@ public class XlpCodeCacheOptionsTestRunner extends Runner {
 			}
 		} while(inputLine != null);
 		System.out.println("End Standard Error");
+
+		System.out.println("Standard Output");
+		do {
+			try {
+				inputLine = stdOutIn.readLine();
+			} catch (IOException e) {
+				e.printStackTrace();
+				return false;
+			}
+
+			if (inputLine != null) {
+				stdOutputList.add(inputLine);
+				System.out.println(inputLine);
+			}
+		} while(inputLine != null);
+		System.out.println("End Standard Output");
 
 		for (index = 0; index < outputList.size(); index++) {
 			String line = ((String)outputList.get(index)).trim();
