@@ -364,33 +364,22 @@ public class XlpCodeCacheOptionsTestRunner extends Runner {
 	
 	/* Overrides method in j9vm.runner.Runner. */
 	public boolean run() {
-		boolean success = false;
 		for (commandIndex = 0; commandIndex < xlpOptionsList.size(); commandIndex++) {
-			success = super.run();
-
 			XlpOption xlpOption = xlpOptionsList.get(commandIndex);
-			if (xlpOption.canFail())
-				success = true;
-			
-			if (success == true) {
-				byte[] stdOut = inCollector.getOutputAsByteArray();
-				byte[] stdErr = errCollector.getOutputAsByteArray();
-				try {
-					success = analyze(stdOut, stdErr);
-				} catch (Exception e) {
-					success = false;
-					System.out.println("Unexpected Exception:");
-					e.printStackTrace();
-				}
-			}
-			if (success == false) {
-				break;
-			}
+
+			super.run();
+
+			// TODO: We shouldn't need stdOut. Does it provide any info?
+			//byte[] stdOut = inCollector.getOutputAsByteArray();
+			byte[] stdErr = errCollector.getOutputAsByteArray();
+
+			if (!analyze(stdOut, stdErr))
+				return false;
 		}
-		return success;
+		return true;
 	}
 	
-	public boolean analyze(byte[] stdOut, byte[] stdErr) throws IOException {
+	public boolean analyze(byte[] stdErr) {
 		BufferedReader in = new BufferedReader(new InputStreamReader(
 				new ByteArrayInputStream(stdErr)));
 		ArrayList<String> outputList = new ArrayList<String>();
