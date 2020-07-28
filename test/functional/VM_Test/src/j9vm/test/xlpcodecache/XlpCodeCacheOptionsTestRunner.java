@@ -372,8 +372,13 @@ public class XlpCodeCacheOptionsTestRunner extends Runner {
 			// TODO: We shouldn't need stdOut. Does it provide any info?
 			//byte[] stdOut = inCollector.getOutputAsByteArray();
 			byte[] stdErr = errCollector.getOutputAsByteArray();
-
-			if (!analyze(stdOut, stdErr))
+			// Debug
+			System.out.println("XlpOption:");
+			System.out.println(xlpOption);
+			System.out.println("Standard Output");
+			System.out.println(stdErr);
+			return true;
+			if (!analyze(stdErr))
 				return false;
 		}
 		return true;
