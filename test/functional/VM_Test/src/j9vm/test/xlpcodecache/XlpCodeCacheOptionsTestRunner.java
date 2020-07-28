@@ -398,7 +398,13 @@ public class XlpCodeCacheOptionsTestRunner extends Runner {
 
 		/* Add all output statements in a array list */
 		do {
-			inputLine = in.readLine();
+			try {
+				inputLine = in.readLine();
+			} catch (IOException e) {
+				e.printStackTrace();
+				return false;
+			}
+
 			if (inputLine != null) {
 				outputList.add(inputLine);
 			}
