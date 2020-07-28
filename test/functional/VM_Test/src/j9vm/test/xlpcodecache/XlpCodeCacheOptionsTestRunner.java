@@ -377,7 +377,7 @@ public class XlpCodeCacheOptionsTestRunner extends Runner {
 			System.out.println(xlpOption);
 			System.out.println("Standard Output");
 			System.out.println(stdErr);
-			return true;
+
 			if (!analyze(stdErr))
 				return false;
 		}
