@@ -361,7 +361,7 @@ public class XlpCodeCacheOptionsTestRunner extends Runner {
 		
 		return customOptions;
 	}
-	
+
 	/* Overrides method in j9vm.runner.Runner. */
 	public boolean run() {
 		for (commandIndex = 0; commandIndex < xlpOptionsList.size(); commandIndex++) {
@@ -369,23 +369,19 @@ public class XlpCodeCacheOptionsTestRunner extends Runner {
 
 			super.run();
 
-			// TODO: We shouldn't need stdOut. Does it provide any info?
-			byte[] stdOut = inCollector.getOutputAsByteArray();
+			/* All verbose logging is part of stdErr */
 			byte[] stdErr = errCollector.getOutputAsByteArray();
 
-			if (!analyze(stdOut, stdErr))
+			if (!analyze(stdErr, xlpOption))
 				return false;
 		}
 		return true;
 	}
-	
-	public boolean analyze(byte[] stdOut, byte[] stdErr) {
+
+	public boolean analyze(byte[] stdErr, XlpOption expectedResult) {
 		BufferedReader in = new BufferedReader(new InputStreamReader(
 				new ByteArrayInputStream(stdErr)));
-		BufferedReader stdOutIn = new BufferedReader(new InputStreamReader(
-				new ByteArrayInputStream(stdOut)));
 		ArrayList<String> outputList = new ArrayList<String>();
-		ArrayList<String> stdOutputList = new ArrayList<String>();
 		String inputLine = null;
 		long pageSizeInVerbose = 0;
 		String pageTypeInVerbose = null;
@@ -412,222 +408,118 @@ public class XlpCodeCacheOptionsTestRunner extends Runner {
 		} while(inputLine != null);
 		System.out.println("End Standard Error");
 
-		System.out.println("Standard Output");
-		do {
-			try {
-				inputLine = stdOutIn.readLine();
-			} catch (IOException e) {
-				e.printStackTrace();
-				return false;
-			}
+		/* Test State of CodeCache large pages. As well as integrity of the verbose output. */
+		boolean isUseLargePagesFound = false;
+		boolean	isUseLargePages = false;
+		/* Test Large Page Size specified. */
+		boolean isLargePageSizeInBytesFound = false;
+		long largePageSize = 0;
+		/* Test Wearnings Specified */
+		boolean isWarningsFound = false;
+		boolean isWarningsEnabled = false;
+		/* Test Errors Specified */
+		boolean isErrorsFound = false;
+		boolean isErrorsEnabled = false;
+		/* Z/OS Large Page Object Heap Type */
+		boolean isPageTypeFound = false;
+		boolean isPageTypePageable = false;
 
-			if (inputLine != null) {
-				stdOutputList.add(inputLine);
-				System.out.println(inputLine);
-			}
-		} while(inputLine != null);
-		System.out.println("End Standard Output");
-
+		/* Parse Output */
 		for (index = 0; index < outputList.size(); index++) {
 			String line = ((String)outputList.get(index)).trim();
-			if (line.startsWith("-Xlp:codecache:pagesize=")) {
-				/*
-				 * An example of -Xlp in -verbose:sizes on z/OS platform is:
-				 *   	-Xlp:codecache:pagesize=1M,pageable          large page size for JIT code cache
-				 *   		            available large page sizes for JIT code cache:
-				 *   	                4K pageable
-				 *                      1M pageable
-				 */
-		
-				isVerbouseOutputPresent = true;
-				
-				/* Parse -Xlp:codecache statement to get page size and type used by JIT for code cache allocation */
-				line = line.trim();
-				/* Split around empty space and use first element to get page size and type */
-				String codeCacheInfo = line.split(" ")[0].trim();
-				int pageSizeBegin = codeCacheInfo.indexOf("=") + 1;
-				int pageSizeEnd = 0;
-				if (osName == OSName.ZOS) {
-					pageSizeEnd = codeCacheInfo.indexOf(",");
-					if (pageSizeEnd == -1) {
-						System.out.println("ERROR: Error in parsing -Xlp:codecache statement. Did not find ','. ");
-						error = true;
-						errorLine = line;
-						break;
-					}
-				} else {
-					pageSizeEnd = codeCacheInfo.length();
-				}
-				String pageSizeString = codeCacheInfo.substring(pageSizeBegin, pageSizeEnd);
-				pageSizeInVerbose = XlpUtil.pageSizeStringToLong(pageSizeString);
-				if (pageSizeInVerbose == 0) {
-					error = true;
-					errorLine = line;
-					break;
-				}
-				if (osName == OSName.ZOS) {
-					pageTypeInVerbose = codeCacheInfo.substring(pageSizeEnd + 1);
-				} else {
-					pageTypeInVerbose = XlpUtil.XLP_PAGE_TYPE_NOT_USED;
-				}
-				break;
-			}
-			else if (line.contains(unsupportedOptionMsg)) {
-				System.out.println("Xlp is not supported on this machine. Skipping Test.");
-				return true;
-			}
-		}
-
-		if (!error && isVerbouseOutputPresent) {
-			/* skip 'available large page sizes:' */
-			boolean firstEntryDone = false;
-			index++;
-			if (index < outputList.size()) {
-				do {
-					/* Read entry for first page size. It is treated as default page size. */
-					index++;
-					if (index >= outputList.size()) {
-						/* Traversed all the statements in the outputList */
-						break;
-					}
-					String line = outputList.get(index);
-					line = line.trim();
-					if (line.startsWith("-X")) {
-						/* Some other option. End of list of supported page sizes, break out */
-						break;
-					}
-					String pageSizeString = null;
-					if (!firstEntryDone) {
-						/* This is the first entry, treat it as default page size. 
-						 * Note that it may get overwritten later.
-						 */
-						firstEntryDone = true;
-						if (osName == OSName.ZOS) {
-							/* Split around empty space to get page size and page type */
-							pageSizeString = line.split(" ")[0];
-							defaultPageType = line.split(" ")[1];
-						} else {
-							/* For non-zOS, only page size is present, page type is not used */ 
-							pageSizeString = line;
-							defaultPageType = XlpUtil.XLP_PAGE_TYPE_NOT_USED;
-						}
-						defaultPageSize = XlpUtil.pageSizeStringToLong(pageSizeString);
-						if (defaultPageSize == 0) {
-							/* Failed to get valid page size */
-							error = true;
-							errorLine = line;
-							break;
-						}
-					} else {
-						/* Overwrite default page size depending on preferences specific to each platform */
-						
-						if (osName == OSName.ZOS) {
-							String pageTypeString;
-							/* Split around empty space to get page size and page type */
-							pageSizeString = line.split(" ")[0];
-							pageTypeString = line.split(" ")[1];
-							/* On z/OS, default or preferred page size is 1M pageable for JIT code cache. */
-							if ((pageSizeString.equals("1M") == true) && (pageTypeString.equals(XlpUtil.XLP_PAGE_TYPE_PAGEABLE))) {
-								defaultPageSize = ONE_MB;
-								defaultPageType = "pageable";
-								break;
-							}
-						} else if (osName == OSName.AIX) {
-							/* On AIX, default or preferred page size is 64K for JIT code cache. */
-							if (line.equals("64K")) {
-								defaultPageSize = 64 * ONE_KB;
-								break;
-							}
-						} else if (osName == OSName.LINUX)  {
-							if (osArch == OSArch.X86) {
-								if (line.equals("2M")) {
-									/* On Linux x86 default or preferred page size is 2M for JIT code cache. */
-									defaultPageSize = 2 * ONE_MB;
-								}
-							} else if (osArch == OSArch.S390X) {
-								if (line.equals("1M")) {
-									/* On zLinux default or preferred page size is 1M for JIT code cache. */
-									defaultPageSize = ONE_MB;
-								}
-							}
-						}
-					}
-				} while (true);
-			}
-			if (!firstEntryDone) {
-				System.out.println("ERROR: Failed to find default page size in -verbose:sizes output");
-				return false;
-			}
-		}
-
-		if (!error) {
-			XlpOption xlpOption = xlpOptionsList.get(commandIndex);
-			String option = xlpOption.getOption();
 			
-			if (isVerbouseOutputPresent == true) {
-				/* Following checks depend on -verbose:sizes output, 
-				 * which is available only if the system supports large page size for executable pages. 
-				 */
-				if (option == null) {
-					/* (pageSizeInVerbose, pageTypeInVerbose) should be same as (defaultPageSize, defaultPageType)
-					 * if we are running without -Xlp option.
-					 */
-					if ((defaultPageSize != pageSizeInVerbose) || (!defaultPageType.equals(pageTypeInVerbose))) {
-						System.out.println("ERROR: Without -Xlp JIT should use default page size and type for executable pages\n");
-						System.out.println("\t Default page size and type for executable pages: " + defaultPageSize + " " + defaultPageType);
-						System.out.println("\t Page size and type used by JIT for executable pages: " + pageSizeInVerbose + " " + pageTypeInVerbose);
-						return false;
-					} else {
-						System.out.println("INFO: JIT is using default page size in absence of -Xlp:codecache option");
-					}
-				} else {
-					/* Check if warning message should be printed */
-					long optionPageSize = xlpOption.getPageSize();
-					if (optionPageSize != 0) {
-						String optionPageType = xlpOption.getPageType();
-						if ((optionPageSize != pageSizeInVerbose) || (!optionPageType.equals(pageTypeInVerbose))) {
-							/* Warning message should have been printed */
-							boolean warningMsgFound = false;
-							for (String line: outputList) {
-								if (Pattern.matches(differentPageSizeWarningMsg, line)) {
-									warningMsgFound = true;
-									System.out.println("INFO: Found warning message for using different page size than specified\n");
-									break;
-								}
-							}
-							if (!warningMsgFound) {
-								/* Print error message */
-								System.out.println("ERROR: Page size and type in Xlp:codecache option is not same as used by JIT, but the expected warning message is not found");
-								System.out.println("\tPage size and page type in Xlp:codecache option: " + optionPageSize + " " + optionPageType);
-								System.out.println("\tPage size and page type used by JIT: " + pageSizeInVerbose + " " + pageTypeInVerbose);
-								return false;
-							}
-						}
-					}
+			/* Verify CodeCache Large Page State */
+			if (line.contains("UseLargePagesCodeCache")) {
+				
+				/* Integrity Check */
+				if (isUseLargePagesFound) {
+					System.out.println("ERROR: Found multiple -XX:[+/-]UseLargePagesCodeCache strings.");
+					return false;
+				}
+
+				isUseLargePagesFound = true;
+
+				/* Store Result */
+				if (line.startsWith("-XX:+UseLargePagesCodeCache")) {
+					isUseLargePages = true;
+				} else if (!line.startsWith("-XX:-UseLargePagesCodeCache")) {
+					System.out.println("ERROR: Malformed State String found.");
+				}
+			} else if (line.startsWith("-XX:LargePageSizeInBytesCodeCache=")) {
+
+				/* Integrity Check */
+				if (isLargePageSizeInBytesFound) {
+					System.out.println("ERROR: Found multiple -XX:LargePageSizeInBytesCodeCache strings.");
+					return false;
+				}
+
+				isLargePageSizeInBytesFound = true;
+
+				/* Extract Page Size */
+				int beginIndex = line.indexOf("=") + 1;
+				String pageSizeString = line.substring(beginIndex, line.indexOf(" ", beginIndex));
+				largePageSize = XlpUtil.pageSizeStringToLong(pageSizeString);
+				/* Handle error in parsing */
+				if (largePageSize == 0) {
+					System.out.println("ERROR: -XX:LargePageSizeInBytesCodeCache= has an invalid page size.");
+					return false;
+				}
+			} else if (line.contains("LargePageWarnings")) {
+				
+				/* Integrity Check */
+				if (isWarningsFound) {
+					System.out.println("ERROR: Found multiple -XX:[+/-]LargePageWarnings");
+					return false;
+				}
+				isWarningsFound = true;
+
+				/* Set Result */
+				if (line.startsWith("-XX:+LargePageWarnings")) {
+					isWarningsEnabled = true;
+				} else if (!line.startsWith("-XX:-LargePageWarnings")) {
+					System.out.println("ERROR: Malformed LargePageWarnings option found.");
+					return false;
+				}
+			} else if (line.contains("LargePageErrors")) {
+
+				/* Integrity Check */
+				if (isErrorsFound) {
+					System.out.println("ERROR: found multiple -XX:[+/-]LargePageErrors");
+					return false;
+				}
+				isErrorsFound = true;
+
+				/* Set Result */
+				if (line.startsWith("-XX:+LargePageErrors")) {
+					isErrorsEnabled = true;
+				} else if (!line.startsWith("-XX:-LargePageErrors")) {
+					System.out.println("ERROR: Malformed LargePageErrors option found.");
+					return false;
+				}
+			} else if (osName == OSName.ZOS && line.startsWith("-XX:zOSLargePagesObjectHeapType=")) {
+				
+				/* Integrity Check */
+				if (isPageTypeFound) {
+					System.out.println("ERROR: found multiple -XX:zOSLargePagesObjectHeap options.");
+					return false;
+				}
+				isPageTypeFound = true;
+
+				/* Set Result */
+				if (line.startsWith("-XX:zosLargePageObjectHeapType=pageable")) {
+					isPageTypePageable = true;
+				} else if (!line.startsWith("-XX:zosLargePageObjectHeapType=nonpageable")) {
+					System.out.println("ERROR: Malformed -XX:zosLargePageObjectHeapType found.");
+					return false;
 				}
 			}
-		} else {
-			/* Print the output statement where error occurred */
-			if (errorLine != null) {
-				System.out.println("Error in line: " + errorLine);
-			}
-			return false;
 		}
 
-		/* Check that XlpCodeCacheOptionsTest is correctly loaded and printed the message */
-		boolean expectedMsgFound = false;
-		for (String line: outputList) {
-			if (line.indexOf(XlpCodeCacheOptionsTest.TEST_OUTPUT) != -1) {
-				expectedMsgFound = true;
-				break;
-			}
-		}
-	
-		if (expectedMsgFound) {
-			System.out.println("INFO: Found expected message: " + XlpCodeCacheOptionsTest.TEST_OUTPUT);
-		} else {
-			System.out.println("ERROR: Did not find expected message: " + XlpCodeCacheOptionsTest.TEST_OUTPUT);
-		}
-		return true;
+		/* DEBUG: Print Out All Verbose Parsed Info */
+
+		/* Modify Expected Results */
+
+		/* Compare with expected results */
+
 	}
 }
