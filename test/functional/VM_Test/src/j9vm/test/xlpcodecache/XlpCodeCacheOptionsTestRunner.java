@@ -372,14 +372,6 @@ public class XlpCodeCacheOptionsTestRunner extends Runner {
 			// TODO: We shouldn't need stdOut. Does it provide any info?
 			byte[] stdOut = inCollector.getOutputAsByteArray();
 			byte[] stdErr = errCollector.getOutputAsByteArray();
-			// Debug
-			System.out.println("XlpOption:");
-			System.out.println(xlpOption);
-			System.out.println("Standard Error");
-			System.out.println(stdErr);
-			System.out.println("Standard Output");
-			System.out.println(stdOut);
-			System.out.println("-----End Output ----");
 
 			if (!analyze(stdErr))
 				return false;
@@ -400,6 +392,8 @@ public class XlpCodeCacheOptionsTestRunner extends Runner {
 		int index = 0;
 
 		/* Add all output statements in a array list */
+		// Debug
+		System.out.println("Standard Error");
 		do {
 			try {
 				inputLine = in.readLine();
@@ -410,8 +404,10 @@ public class XlpCodeCacheOptionsTestRunner extends Runner {
 
 			if (inputLine != null) {
 				outputList.add(inputLine);
+				system.out.println(inputLine);
 			}
 		} while(inputLine != null);
+		System.out.println("End Standard Error");
 
 		for (index = 0; index < outputList.size(); index++) {
 			String line = ((String)outputList.get(index)).trim();
