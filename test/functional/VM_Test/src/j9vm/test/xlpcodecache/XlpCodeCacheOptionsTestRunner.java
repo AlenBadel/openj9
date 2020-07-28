@@ -404,7 +404,7 @@ public class XlpCodeCacheOptionsTestRunner extends Runner {
 
 			if (inputLine != null) {
 				outputList.add(inputLine);
-				system.out.println(inputLine);
+				System.out.println(inputLine);
 			}
 		} while(inputLine != null);
 		System.out.println("End Standard Error");
