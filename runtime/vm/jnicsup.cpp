@@ -2310,7 +2310,7 @@ jniParseArguments(J9JavaVM *vm, char *optArg)
 			if(try_scan(&scan_start, "unlimited")) {
 				vm->jniArrayCacheMaxSize = (UDATA)-1;
 			} else {
-				if(scan_udata(&scan_start, &vm->jniArrayCacheMaxSize)) {
+				if (OPTION_OK != scan_udata(&scan_start, &vm->jniArrayCacheMaxSize)) {
 					goto _error;
 				}
 			}

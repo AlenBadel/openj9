@@ -425,7 +425,7 @@ parseMemorySizeValue(char *option)
 	char *cursor = option;
 
 	if (NULL != option) {
-		if (0 == scan_u64(&cursor, &result)) {
+		if (OPTION_OK == scan_u64(&cursor, &result)) {
 			UDATA shiftFactor = 0;
 			BOOLEAN parsingError = FALSE;
 

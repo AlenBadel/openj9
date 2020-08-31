@@ -45,7 +45,7 @@ getValuesFromShcFilePrefix(struct J9PortLibrary* portLibrary, const char* filena
 
 		if (*cursor == J9SH_VERSION_PREFIX_CHAR) {
 			++cursor;
-			if (scan_udata(&cursor, &temp) == 0) {
+			if (scan_udata(&cursor, &temp) == OPTION_OK) {
 				result->esVersionMinor = (uint32_t)(temp % 100);
 				result->esVersionMajor = (uint32_t)((temp - result->esVersionMinor) / 100);
 			} else {
@@ -56,7 +56,7 @@ getValuesFromShcFilePrefix(struct J9PortLibrary* portLibrary, const char* filena
 		}
 		if ((*cursor == J9SH_MODLEVEL_PREFIX_CHAR) || (*cursor == J9SH_MODLEVEL_G07ANDLOWER_CHAR)) {
 			++cursor;
-			if (scan_udata(&cursor, &temp) == 0) {
+			if (scan_udata(&cursor, &temp) == OPTION_OK) {
 				result->modlevel = (uint32_t)temp;
 			} else {
 				return 0;
@@ -76,7 +76,7 @@ getValuesFromShcFilePrefix(struct J9PortLibrary* portLibrary, const char* filena
 		}
 		if (*cursor == J9SH_ADDRMODE_PREFIX_CHAR) {
 			++cursor;
-			if (scan_udata(&cursor, &temp) == 0) {
+			if (scan_udata(&cursor, &temp) == OPTION_OK) {
 				result->addrmode = (uint32_t)temp;
 			} else {
 				return 0;
@@ -122,7 +122,7 @@ getGenerationFromName(const char* cacheNameWithVGen)
 		return 0;
 	}
 	cursor += strlen("_G");
-	if (scan_udata(&cursor, &genValue) == 0) {
+	if (scan_udata(&cursor, &genValue) == OPTION_OK) {
 		return genValue;
 	} else {
 		return	0;
@@ -154,7 +154,7 @@ getLayerFromName(const char* cacheNameWithVGen)
 		goto done;
 	}
 	cursor++;
-	if (scan_udata(&cursor, &temp0) == 0) {
+	if (scan_udata(&cursor, &temp0) == OPTION_OK) {
 		if (temp0 <= J9SH_LAYER_NUM_MAX_VALUE) {
 			layerNumber = (I_8)temp0;
 		}

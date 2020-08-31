@@ -82,7 +82,7 @@ gcParseXXgcArguments(J9JavaVM *vm, char *optArg)
 			continue;
 		}		
 		if (try_scan(&scan_start, "debug=")) {
-			if (scan_udata(&scan_start, &(extensions->debug))) {
+			if (OPTION_OK != scan_udata(&scan_start, &(extensions->debug))) {
 				returnValue = JNI_EINVAL;
 				break;
 			}

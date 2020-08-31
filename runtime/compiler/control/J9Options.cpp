@@ -1577,9 +1577,9 @@ J9::Options::fePreProcess(void * base)
                UDATA scanResult = scan_udata(&optionsString, &requestedLargeCodePageSize);
 
                // First scan for the integer string.
-               if (0 != scanResult)
+               if (OPTION_OK != scanResult)
                   {
-                  if (1 == scanResult)
+                  if (OPTION_MALFORMED == scanResult)
                      j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_JIT_OPTIONS_MUST_BE_NUMBER, "pagesize=");
                   else
                      j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_JIT_OPTIONS_VALUE_OVERFLOWED, "pagesize=");

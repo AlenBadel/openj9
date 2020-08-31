@@ -56,7 +56,7 @@ verify_scan_udata(J9PortLibrary *portLib, UDATA *passCount, UDATA *failCount)
 
 	start = cursor = "2147483647";
 	rc = scan_udata(&cursor, &result);
-	if (rc != 0) {
+	if (rc != OPTION_OK) {
 		j9tty_err_printf(PORTLIB, "Unexpected error parsing \"%s\": %d\n", start, rc);
 		(*failCount)++;
 	} else if (result != (UDATA)I_32_MAX) {
@@ -71,7 +71,7 @@ verify_scan_udata(J9PortLibrary *portLib, UDATA *passCount, UDATA *failCount)
 
 	start = cursor = "4294967295 ";
 	rc = scan_udata(&cursor, &result);
-	if (rc != 0) {
+	if (rc != OPTION_OK) {
 		j9tty_err_printf(PORTLIB, "Unexpected error parsing \"%s\": %d\n", start, rc);
 		(*failCount)++;
 	} else if (result != U_32_MAX) {
@@ -86,7 +86,7 @@ verify_scan_udata(J9PortLibrary *portLib, UDATA *passCount, UDATA *failCount)
 
 	start = cursor = "0";
 	rc = scan_udata(&cursor, &result);
-	if (rc != 0) {
+	if (rc != OPTION_OK) {
 		j9tty_err_printf(PORTLIB, "Unexpected error parsing \"%s\": %d\n", start, rc);
 		(*failCount)++;
 	} else if (result != 0) {
@@ -101,7 +101,7 @@ verify_scan_udata(J9PortLibrary *portLib, UDATA *passCount, UDATA *failCount)
 
 	start = cursor = "0000";
 	rc = scan_udata(&cursor, &result);
-	if (rc != 0) {
+	if (rc != OPTION_OK) {
 		j9tty_err_printf(PORTLIB, "Unexpected error parsing \"%s\": %d\n", start, rc);
 		(*failCount)++;
 	} else if (result != 0) {
@@ -116,7 +116,7 @@ verify_scan_udata(J9PortLibrary *portLib, UDATA *passCount, UDATA *failCount)
 
 	start = cursor = "";
 	rc = scan_udata(&cursor, &result);
-	if (rc != 1) {
+	if (rc != OPTION_MALFORMED) {
 		j9tty_err_printf(PORTLIB, "Unexpected rc parsing \"%s\": %d\n", start, rc);
 		(*failCount)++;
 	} if (cursor != start) {
@@ -129,7 +129,7 @@ verify_scan_udata(J9PortLibrary *portLib, UDATA *passCount, UDATA *failCount)
 #ifdef J9VM_ENV_DATA64
 	start = cursor = "18446744073709551615";
 	rc = scan_udata(&cursor, &result);
-	if (rc != 0) {
+	if (rc != OPTION_OK) {
 		j9tty_err_printf(PORTLIB, "Unexpected error parsing \"%s\": %d\n", start, rc);
 		(*failCount)++;
 	} else if (result != U_64_MAX) {
@@ -144,7 +144,7 @@ verify_scan_udata(J9PortLibrary *portLib, UDATA *passCount, UDATA *failCount)
 
 	start = cursor = "18446744073709551615 ";
 	rc = scan_udata(&cursor, &result);
-	if (rc != 0) {
+	if (rc != OPTION_OK) {
 		j9tty_err_printf(PORTLIB, "Unexpected error parsing \"%s\": %d\n", start, rc);
 		(*failCount)++;
 	} else if (result != U_64_MAX) {
@@ -159,7 +159,7 @@ verify_scan_udata(J9PortLibrary *portLib, UDATA *passCount, UDATA *failCount)
 
 	start = cursor = "18446744073709551616";
 	rc = scan_udata(&cursor, &result);
-	if (rc != 2) {
+	if (rc != OPTION_OVERFLOW) {
 		j9tty_err_printf(PORTLIB, "Unexpected rc parsing \"%s\": %d\n", start, rc);
 		(*failCount)++;
 	} if (cursor != start) {
@@ -170,7 +170,7 @@ verify_scan_udata(J9PortLibrary *portLib, UDATA *passCount, UDATA *failCount)
 	}
 	start = cursor = "111111111111111111111";
 	rc = scan_udata(&cursor, &result);
-	if (rc != 2) {
+	if (rc != OPTION_OVERFLOW) {
 		j9tty_err_printf(PORTLIB, "Unexpected rc parsing \"%s\": %d\n", start, rc);
 		(*failCount)++;
 	} if (cursor != start) {
@@ -182,7 +182,7 @@ verify_scan_udata(J9PortLibrary *portLib, UDATA *passCount, UDATA *failCount)
 #else
 	start = cursor = "4294967296";
 	rc = scan_udata(&cursor, &result);
-	if (rc != 2) {
+	if (rc != OPTION_OVERFLOW) {
 		j9tty_err_printf(PORTLIB, "Unexpected rc parsing \"%s\": %d\n", start, rc);
 		(*failCount)++;
 	} if (cursor != start) {
@@ -193,7 +193,7 @@ verify_scan_udata(J9PortLibrary *portLib, UDATA *passCount, UDATA *failCount)
 	}
 	start = cursor = "11111111111";
 	rc = scan_udata(&cursor, &result);
-	if (rc != 2) {
+	if (rc != OPTION_OVERFLOW) {
 		j9tty_err_printf(PORTLIB, "Unexpected rc parsing \"%s\": %d\n", start, rc);
 		(*failCount)++;
 	} if (cursor != start) {

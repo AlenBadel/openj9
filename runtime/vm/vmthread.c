@@ -678,42 +678,42 @@ threadParseArguments(J9JavaVM *vm, char *optArg)
 		}
 
 		if (try_scan(&scan_start, "spin1=")) {
-			if (scan_udata(&scan_start, &vm->thrMaxSpins1BeforeBlocking)) {
+			if (OPTION_OK != scan_udata(&scan_start, &vm->thrMaxSpins1BeforeBlocking)) {
 				goto _error;
 			}
 			continue;
 		}
 
 		if (try_scan(&scan_start, "spin2=")) {
-			if (scan_udata(&scan_start, &vm->thrMaxSpins2BeforeBlocking)) {
+			if (OPTION_OK != scan_udata(&scan_start, &vm->thrMaxSpins2BeforeBlocking)) {
 				goto _error;
 			}
 			continue;
 		}
 
 		if (try_scan(&scan_start, "yield=")) {
-			if (scan_udata(&scan_start, &vm->thrMaxYieldsBeforeBlocking)) {
+			if (OPTION_OK != scan_udata(&scan_start, &vm->thrMaxYieldsBeforeBlocking)) {
 				goto _error;
 			}
 			continue;
 		}
 
 		if (try_scan(&scan_start, "tryEnterSpin1=")) {
-			if (scan_udata(&scan_start, &vm->thrMaxTryEnterSpins1BeforeBlocking)) {
+			if (OPTION_OK != scan_udata(&scan_start, &vm->thrMaxTryEnterSpins1BeforeBlocking)) {
 				goto _error;
 			}
 			continue;
 		}
 
 		if (try_scan(&scan_start, "tryEnterSpin2=")) {
-			if (scan_udata(&scan_start, &vm->thrMaxTryEnterSpins2BeforeBlocking)) {
+			if (OPTION_OK != scan_udata(&scan_start, &vm->thrMaxTryEnterSpins2BeforeBlocking)) {
 				goto _error;
 			}
 			continue;
 		}
 
 		if (try_scan(&scan_start, "tryEnterYield=")) {
-			if (scan_udata(&scan_start, &vm->thrMaxTryEnterYieldsBeforeBlocking)) {
+			if (OPTION_OK != scan_udata(&scan_start, &vm->thrMaxTryEnterYieldsBeforeBlocking)) {
 				goto _error;
 			}
 			continue;
@@ -741,7 +741,7 @@ threadParseArguments(J9JavaVM *vm, char *optArg)
 
 
 		if (try_scan(&scan_start, "staggerStep=")) {
-			if (scan_udata(&scan_start, &vm->thrStaggerStep)) {
+			if (OPTION_OK != scan_udata(&scan_start, &vm->thrStaggerStep)) {
 				goto _error;
 			}
 			if (vm->thrStaggerStep & (sizeof(UDATA) - 1)) {
@@ -751,7 +751,7 @@ threadParseArguments(J9JavaVM *vm, char *optArg)
 		}
 
 		if (try_scan(&scan_start, "staggerMax=")) {
-			if (scan_udata(&scan_start, &vm->thrStaggerMax)) {
+			if (OPTION_OK != scan_udata(&scan_start, &vm->thrStaggerMax)) {
 				goto _error;
 			}
 			continue;
@@ -789,7 +789,7 @@ threadParseArguments(J9JavaVM *vm, char *optArg)
 #if defined(OMR_THR_SPIN_WAKE_CONTROL)
   		if (try_scan(&scan_start, "maxSpinThreads=")) {
   			UDATA maxSpinThreads = 0;
-  			if (scan_udata(&scan_start, &maxSpinThreads)) {
+  			if (OPTION_OK != scan_udata(&scan_start, &maxSpinThreads)) {
   				goto _error;
   			}
   			**(UDATA**)omrthread_global("maxSpinThreads") = maxSpinThreads;
@@ -797,7 +797,7 @@ threadParseArguments(J9JavaVM *vm, char *optArg)
   		}
   		if (try_scan(&scan_start, "maxWakeThreads=")) {
   			UDATA maxWakeThreads = 0;
-  			if (scan_udata(&scan_start, &maxWakeThreads)) {
+  			if (OPTION_OK != scan_udata(&scan_start, &maxWakeThreads)) {
   				goto _error;
   			}
   			if (maxWakeThreads < OMRTHREAD_MINIMUM_WAKE_THREADS) {
@@ -809,7 +809,7 @@ threadParseArguments(J9JavaVM *vm, char *optArg)
 #endif /* defined(OMR_THR_SPIN_WAKE_CONTROL) */
 		if (try_scan(&scan_start, "threeTierSpinCount1=")) {
 				UDATA spinCount;
-				if (scan_udata(&scan_start, &spinCount)) {
+				if (OPTION_OK != scan_udata(&scan_start, &spinCount)) {
 					goto _error;
 				}
 				if (0 == spinCount) {
@@ -820,7 +820,7 @@ threadParseArguments(J9JavaVM *vm, char *optArg)
 		}
 		if (try_scan(&scan_start, "threeTierSpinCount2=")) {
 				UDATA spinCount;
-				if (scan_udata(&scan_start, &spinCount)) {
+				if (OPTION_OK != scan_udata(&scan_start, &spinCount)) {
 					goto _error;
 				}
 				if (0 == spinCount) {
@@ -831,7 +831,7 @@ threadParseArguments(J9JavaVM *vm, char *optArg)
 		}
 		if (try_scan(&scan_start, "threeTierSpinCount3=")) {
 				UDATA spinCount;
-				if (scan_udata(&scan_start, &spinCount)) {
+				if (OPTION_OK != scan_udata(&scan_start, &spinCount)) {
 					goto _error;
 				}
 				if (0 == spinCount) {
@@ -915,7 +915,7 @@ threadParseArguments(J9JavaVM *vm, char *optArg)
 					goto _error;
 				}
 
-				if (scan_udata(&scan_start, &j9monitorOptions->thrMaxSpins1BeforeBlocking)) {
+				if (OPTION_OK != scan_udata(&scan_start, &j9monitorOptions->thrMaxSpins1BeforeBlocking)) {
 					goto _error;
 				}
 
@@ -923,7 +923,7 @@ threadParseArguments(J9JavaVM *vm, char *optArg)
 					goto _error;
 				}
 
-				if (scan_udata(&scan_start, &j9monitorOptions->thrMaxSpins2BeforeBlocking)) {
+				if (OPTION_OK != scan_udata(&scan_start, &j9monitorOptions->thrMaxSpins2BeforeBlocking)) {
 					goto _error;
 				}
 
@@ -931,7 +931,7 @@ threadParseArguments(J9JavaVM *vm, char *optArg)
 					goto _error;
 				}
 
-				if (scan_udata(&scan_start, &j9monitorOptions->thrMaxYieldsBeforeBlocking)) {
+				if (OPTION_OK != scan_udata(&scan_start, &j9monitorOptions->thrMaxYieldsBeforeBlocking)) {
 					goto _error;
 				}
 
@@ -939,7 +939,7 @@ threadParseArguments(J9JavaVM *vm, char *optArg)
 					goto _error;
 				}
 
-				if (scan_udata(&scan_start, &j9monitorOptions->thrMaxTryEnterSpins1BeforeBlocking)) {
+				if (OPTION_OK != scan_udata(&scan_start, &j9monitorOptions->thrMaxTryEnterSpins1BeforeBlocking)) {
 					goto _error;
 				}
 
@@ -947,7 +947,7 @@ threadParseArguments(J9JavaVM *vm, char *optArg)
 					goto _error;
 				}
 
-				if (scan_udata(&scan_start, &j9monitorOptions->thrMaxTryEnterSpins2BeforeBlocking)) {
+				if (OPTION_OK != scan_udata(&scan_start, &j9monitorOptions->thrMaxTryEnterSpins2BeforeBlocking)) {
 					goto _error;
 				}
 
@@ -955,7 +955,7 @@ threadParseArguments(J9JavaVM *vm, char *optArg)
 					goto _error;
 				}
 
-				if (scan_udata(&scan_start, &j9monitorOptions->thrMaxTryEnterYieldsBeforeBlocking)) {
+				if (OPTION_OK != scan_udata(&scan_start, &j9monitorOptions->thrMaxTryEnterYieldsBeforeBlocking)) {
 					goto _error;
 				}
 
@@ -965,7 +965,7 @@ threadParseArguments(J9JavaVM *vm, char *optArg)
 					goto _error;
 				}
 
-				if (0 == scan_udata(&scan_start, &j9threadOptions->customThreeTierSpinCount1)) {
+				if (OPTION_OK == scan_udata(&scan_start, &j9threadOptions->customThreeTierSpinCount1)) {
 					if (0 == j9threadOptions->customThreeTierSpinCount1) {
 						goto _error;
 					}
@@ -977,7 +977,7 @@ threadParseArguments(J9JavaVM *vm, char *optArg)
 					goto _error;
 				}
 
-				if (0 == scan_udata(&scan_start, &j9threadOptions->customThreeTierSpinCount2)) {
+				if (OPTION_OK == scan_udata(&scan_start, &j9threadOptions->customThreeTierSpinCount2)) {
 					if (0 == j9threadOptions->customThreeTierSpinCount2) {
 						goto _error;
 					}
@@ -989,7 +989,7 @@ threadParseArguments(J9JavaVM *vm, char *optArg)
 					goto _error;
 				}
 
-				if (0 == scan_udata(&scan_start, &j9threadOptions->customThreeTierSpinCount3)) {
+				if (OPTION_OK == scan_udata(&scan_start, &j9threadOptions->customThreeTierSpinCount3)) {
 					if (0 == j9threadOptions->customThreeTierSpinCount3) {
 						goto _error;
 					}
@@ -1004,7 +1004,7 @@ threadParseArguments(J9JavaVM *vm, char *optArg)
 
 				{
 					UDATA customAdaptSpin = 0;
-					if (0 == scan_udata(&scan_start, &customAdaptSpin)) {
+					if (OPTION_OK == scan_udata(&scan_start, &customAdaptSpin)) {
 						if (0 == customAdaptSpin) {
 							j9threadOptions->customAdaptSpin = 0;
 						} else if (1 == customAdaptSpin) {
@@ -1037,7 +1037,7 @@ threadParseArguments(J9JavaVM *vm, char *optArg)
 #ifdef OMR_THR_ADAPTIVE_SPIN
 		if (try_scan(&scan_start, "adaptSpinHoldtime=")) {
 			UDATA adaptSpinHoldtime;
-			if (scan_udata(&scan_start, &adaptSpinHoldtime)) {
+			if (OPTION_OK != scan_udata(&scan_start, &adaptSpinHoldtime)) {
 				goto _error;
 			}
 			**(UDATA**)omrthread_global("adaptSpinHoldtime") = adaptSpinHoldtime;
@@ -1047,7 +1047,7 @@ threadParseArguments(J9JavaVM *vm, char *optArg)
 
 		if (try_scan(&scan_start, "adaptSpinSlowPercent=")) {
 			UDATA adaptSpinSlowPercent;
-			if (scan_udata(&scan_start, &adaptSpinSlowPercent)) {
+			if (OPTION_OK != scan_udata(&scan_start, &adaptSpinSlowPercent)) {
 				goto _error;
 			}
 			**(UDATA**)omrthread_global("adaptSpinSlowPercent") = adaptSpinSlowPercent;
@@ -1057,7 +1057,7 @@ threadParseArguments(J9JavaVM *vm, char *optArg)
 
 		if (try_scan(&scan_start, "adaptSpinSampleThreshold=")) {
 			UDATA adaptSpinSampleThreshold;
-			if (scan_udata(&scan_start, &adaptSpinSampleThreshold)) {
+			if (OPTION_OK != scan_udata(&scan_start, &adaptSpinSampleThreshold)) {
 				goto _error;
 			}
 			**(UDATA**)omrthread_global("adaptSpinSampleThreshold") = adaptSpinSampleThreshold;
@@ -1066,7 +1066,7 @@ threadParseArguments(J9JavaVM *vm, char *optArg)
 
 		if (try_scan(&scan_start, "adaptSpinSampleStopCount=")) {
 			UDATA adaptSpinSampleStopCount;
-			if (scan_udata(&scan_start, &adaptSpinSampleStopCount)) {
+			if (OPTION_OK != scan_udata(&scan_start, &adaptSpinSampleStopCount)) {
 				goto _error;
 			}
 			**(UDATA**)omrthread_global("adaptSpinSampleStopCount") = adaptSpinSampleStopCount;
@@ -1075,7 +1075,7 @@ threadParseArguments(J9JavaVM *vm, char *optArg)
 
 		if (try_scan(&scan_start, "adaptSpinSampleCountStopRatio=")) {
 			UDATA adaptSpinSampleCountStopRatio;
-			if (scan_udata(&scan_start, &adaptSpinSampleCountStopRatio)) {
+			if (OPTION_OK != scan_udata(&scan_start, &adaptSpinSampleCountStopRatio)) {
 				goto _error;
 			}
 			**(UDATA**)omrthread_global("adaptSpinSampleCountStopRatio") = adaptSpinSampleCountStopRatio;
@@ -1130,7 +1130,7 @@ threadParseArguments(J9JavaVM *vm, char *optArg)
 #if defined(OMR_THR_YIELD_ALG)
 		if (try_scan(&scan_start, "yieldAlgorithm=")) {
 			UDATA yieldAlgorithm;
-			if (scan_udata(&scan_start, &yieldAlgorithm)) {
+			if (OPTION_OK != scan_udata(&scan_start, &yieldAlgorithm)) {
 				goto _error;
 			}
 			**(UDATA**)omrthread_global("yieldAlgorithm") = yieldAlgorithm;
@@ -1139,7 +1139,7 @@ threadParseArguments(J9JavaVM *vm, char *optArg)
 
 		if (try_scan(&scan_start, "yieldUsleepMultiplier=")) {
 			UDATA yieldUsleepMultiplier;
-			if (scan_udata(&scan_start, &yieldUsleepMultiplier)) {
+			if (OPTION_OK != scan_udata(&scan_start, &yieldUsleepMultiplier)) {
 				goto _error;
 			}
 			**(UDATA**)omrthread_global("yieldUsleepMultiplier") = yieldUsleepMultiplier;

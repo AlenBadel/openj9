@@ -1277,8 +1277,8 @@ scan_udata_helper(J9JavaVM *javaVM, char **cursor, UDATA *value, const char *arg
 	UDATA result;
 	PORT_ACCESS_FROM_JAVAVM(javaVM);
 
-	if (0 != (result = scan_udata(cursor, value))) {
-		if (1 == result) {
+	if (OPTION_OK != (result = scan_udata(cursor, value))) {
+		if (OPTION_MALFORMED == result) {
 			j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_GC_OPTIONS_MUST_BE_NUMBER, argName);
 		} else {
 			j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_GC_OPTIONS_VALUE_OVERFLOWED, argName);
@@ -1303,8 +1303,8 @@ scan_u32_helper(J9JavaVM *javaVM, char **cursor, U_32 *value, const char *argNam
 	UDATA result;
 	PORT_ACCESS_FROM_JAVAVM(javaVM);
 
-	if (0 != (result = scan_u32(cursor, value))) {
-		if (1 == result) {
+	if (OPTION_OK != (result = scan_u32(cursor, value))) {
+		if (OPTION_MALFORMED == result) {
 			j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_GC_OPTIONS_MUST_BE_NUMBER, argName);
 		} else {
 			j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_GC_OPTIONS_VALUE_OVERFLOWED, argName);
@@ -1329,8 +1329,8 @@ scan_u64_helper(J9JavaVM *javaVM, char **cursor, U_64 *value, const char *argNam
 	U_64 result;
 	PORT_ACCESS_FROM_JAVAVM(javaVM);
 
-	if (0 != (result = scan_u64(cursor, value))) {
-		if (1 == result) {
+	if (OPTION_OK != (result = scan_u64(cursor, value))) {
+		if (OPTION_MALFORMED == result) {
 			j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_GC_OPTIONS_MUST_BE_NUMBER, argName);
 		} else {
 			j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_GC_OPTIONS_VALUE_OVERFLOWED, argName);

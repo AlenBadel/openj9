@@ -689,7 +689,7 @@ parseArgs(J9JavaVM* vm, char* options, U_64* runtimeFlags, UDATA* verboseFlags, 
 			UDATA temp = 0;
 			char* layerString = options + strlen(OPTION_LAYER_EQUALS);
 			char* cursor = layerString;
-			if ((scan_udata(&cursor, &temp) == 0)
+			if ((scan_udata(&cursor, &temp) == OPTION_OK)
 				&& (temp <= J9SH_LAYER_NUM_MAX_VALUE)
 			) {
 				vm->sharedCacheAPI->layer = (I_8)temp;
@@ -1055,7 +1055,7 @@ parseArgs(J9JavaVM* vm, char* options, U_64* runtimeFlags, UDATA* verboseFlags, 
 			tempStr = options + strlen(OPTION_STORAGE_KEY_EQUALS);
 			options += strlen(OPTION_STORAGE_KEY_EQUALS)+strlen(tempStr)+1;
 
-			if (!scan_udata(&tempStr, storageKeyTesting)) {
+			if (OPTION_OK == scan_udata(&tempStr, storageKeyTesting)) {
 				if (*storageKeyTesting < 16) {
 					*runtimeFlags |= J9SHR_RUNTIMEFLAG_ENABLE_STORAGEKEY_TESTING;
 				}
@@ -2595,7 +2595,7 @@ performSharedClassesCommandLineAction(J9JavaVM* vm, J9SharedClassConfig* sharedC
 			UDATA expireTimeVal = 0;
 			char* scanstart = expireTimeStr;
 
-			if (!scan_udata(&scanstart, &expireTimeVal)) {
+			if (OPTION_OK == scan_udata(&scanstart, &expireTimeVal)) {
 				if(expireTimeVal < ((U_32) -1)) {
 					j9shr_destroy_expire_cache(vm, sharedClassConfig->ctrlDirName, groupPerm, verboseFlags, expireTimeVal);
 					return 0;
@@ -4460,7 +4460,7 @@ static BOOLEAN
 j9shr_parseMemSize(char * str, UDATA & value) {
 	UDATA oldValue = value;
 
-	if (0 != scan_udata(&str,&value)) {
+	if (OPTION_OK != scan_udata(&str,&value)) {
 		/*MALFORMED UDATA*/
 		return FALSE;
 	}

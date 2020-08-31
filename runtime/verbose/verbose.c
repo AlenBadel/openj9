@@ -606,7 +606,7 @@ parseVerboseArgument(char* options, J9VerboseSettings* verboseOptions, char** er
 			char * scanCursor = options + sizeof(OPT_STACKWALK_EQUALS) - 1;
 			verboseOptions->stackwalk = VERBOSE_SETTINGS_SET;
 
-			if (scan_udata(&scanCursor, &(verboseOptions->stackWalkVerboseLevel)) || *scanCursor) {
+			if ( (OPTION_OK != scan_udata(&scanCursor, &(verboseOptions->stackWalkVerboseLevel))) || *scanCursor) {
 				if( errorString ) {
 					*errorString = "invalid stackwalk trace level";
 				}
@@ -849,7 +849,7 @@ initializeVerbosegclogFromOptions(J9JavaVM* vm, char* vbgclogBuffer, UDATA buffe
 	/* if vbgclogBufferPtr point to behind bufferSize, there is no fileCount option */
 	if ((vbgclogBufferPtr < (vbgclogBuffer + bufferSize)) && ('\0' != *vbgclogBufferPtr)) {
 		scanResult = scan_udata(&vbgclogBufferPtr, &fileCount);
-		if (scanResult || (0 == fileCount)) {
+		if ( (OPTION_OK != scanResult) || (0 == fileCount)) {
 			j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_VERB_XVERBOSEGCLOG_NUM_FILES);
 			return FALSE;
 		}
@@ -860,7 +860,7 @@ initializeVerbosegclogFromOptions(J9JavaVM* vm, char* vbgclogBuffer, UDATA buffe
 	/* if vbgclogBufferPtr point to behind bufferSize, there is no blockCount option */
 	if ((vbgclogBufferPtr < (vbgclogBuffer + bufferSize)) && ('\0' != *vbgclogBufferPtr)) {
 		scanResult = scan_udata(&vbgclogBufferPtr, &blockCount);
-		if (scanResult || (0 == blockCount)) {
+		if ( (OPTION_OK != scanResult) || (0 == blockCount)) {
 			j9nls_printf(PORTLIB, J9NLS_ERROR, J9NLS_VERB_XVERBOSEGCLOG_NUM_CYCLES);
 			return FALSE;
 		}

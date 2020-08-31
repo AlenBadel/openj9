@@ -526,9 +526,8 @@ optionValueOperations(J9PortLibrary *portLibrary, J9VMInitArgs* j9vm_args, IDATA
 				*((UDATA*)(reserved)) = 0;
 				scanStart = getStartOfOptionValue(j9vm_args, element, *valuesBuffer);
 				cursor = scanStart;
-				if (scan_udata(&cursor, &value)) {
+				if (OPTION_OK != scan_udata(&cursor, &value))
 					return OPTION_MALFORMED;
-				}
 
 				/* For GET_INT_VALUE, operation is simple. Return value below or error. */
 				if (action==GET_INT_VALUE) {
@@ -563,7 +562,7 @@ optionValueOperations(J9PortLibrary *portLibrary, J9VMInitArgs* j9vm_args, IDATA
 								}
 							}
 
-							if (scan_udata(&floatingBufferPtr, &value)) {
+							if (OPTION_OK != scan_udata(&floatingBufferPtr, &value)) {
 								return OPTION_MALFORMED;
 							}
 						}

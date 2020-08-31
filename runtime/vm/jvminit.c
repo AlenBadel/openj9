@@ -7280,7 +7280,7 @@ parseGlrOption(J9JavaVM* jvm, char* option)
 	/* This trims off the leading equal sign. */
 	valueString = valueString + 1;
 
-	if (scan_udata(&valueString, &value) != 0) {
+	if (OPTION_OK != scan_udata(&valueString, &value)) {
 		return JNI_ERR;
 	}
 

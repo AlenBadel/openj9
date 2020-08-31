@@ -181,7 +181,7 @@ parseAllocationRange(char *range, UDATA *min, UDATA *max)
 	}
 	range++;
 	
-	if (scan_udata(&range, min) != 0) {
+	if (OPTION_OK != scan_udata(&range, min) != 0) {
 		/* No matching numeric value */
 		return 0;
 	}
@@ -190,7 +190,7 @@ parseAllocationRange(char *range, UDATA *min, UDATA *max)
 	}
 	
 	if (try_scan(&range, "..")) {
-		if (scan_udata(&range, max) != 0) {
+		if (OPTION_OK != scan_udata(&range, max) != 0) {
 			/* No matching numeric value */
 			return 0;
 		}
@@ -230,7 +230,7 @@ matchesObjectAllocationFilter(J9RASdumpEventData *eventData, char *filter)
 
 	/* Convert the message to a number */
 	msgPtr = msgText;
-	if (scan_udata(&msgPtr, &msgValue) != 0) {
+	if (OPTION_OK != scan_udata(&msgPtr, &msgValue) != 0) {
 		/* No matching numeric value */
 		return J9RAS_DUMP_NO_MATCH;
 	}

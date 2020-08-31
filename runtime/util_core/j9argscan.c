@@ -139,7 +139,7 @@ uintptr_t scan_double(char **scan_start, double *result)
 uintptr_t scan_udata(char **scan_start, uintptr_t* result)
 {
 	/* supporting 0x prefix might be nice (or octal) */
-	uintptr_t total = 0, rc = 1;
+	uintptr_t total = 0, rc = OPTION_MALFORMED;
 	char *c = *scan_start;
 
 	/* isdigit isn't properly supported everywhere */
@@ -147,18 +147,18 @@ uintptr_t scan_udata(char **scan_start, uintptr_t* result)
 		uintptr_t digitValue = *c - '0';
 
 		if (total > ((uintptr_t)-1) / 10 ) {
-			return 2;
+			return OPTION_OVERFLOW;
 		}
 
 		total *= 10;
 
 		if ( total > ((uintptr_t)-1) - digitValue ) {
-			return 2;
+			return OPTION_OVERFLOW;
 		}
 
 		total += digitValue;
 
-		rc = 0;	/* we found at least one digit */
+		rc = OPTION_OK;	/* we found at least one digit */
 
 		c++;
 	}
@@ -177,7 +177,7 @@ scan_u64(char **scan_start, uint64_t* result)
 {
 	/* supporting 0x prefix might be nice (or octal) */
 	uint64_t total = 0;
-	uintptr_t rc = 1;
+	uintptr_t rc = OPTION_MALFORMED;
 	char *c = *scan_start;
 
 	/* isdigit isn't properly supported everywhere */
@@ -185,18 +185,18 @@ scan_u64(char **scan_start, uint64_t* result)
 		uintptr_t digitValue = *c - '0';
 
 		if (total > ((uint64_t)-1) / 10 ) {
-			return 2;
+			return OPTION_OVERFLOW;
 		}
 
 		total *= 10;
 
 		if ( total > ((uint64_t)-1) - digitValue ) {
-			return 2;
+			return OPTION_OVERFLOW;
 		}
 
 		total += digitValue;
 
-		rc = 0;	/* we found at least one digit */
+		rc = OPTION_OK;	/* we found at least one digit */
 
 		c++;
 	}
@@ -261,20 +261,20 @@ uintptr_t scan_idata(char **scan_start, intptr_t *result)
 
 	rc = scan_udata(&new_scan_start, (uintptr_t *)result);
 
-	if (rc == 0) {
+	if (rc == OPTION_OK) {
 		if (*result < 0) {
 			if ( ( (uintptr_t)*result  == (uintptr_t)1 << (sizeof(uintptr_t) * 8 - 1) ) && ( c == '-' ) ) {
 				/* this is MIN_UDATA */
-				rc = 0;
+				rc = OPTION_OK;
 			} else {
-				rc = 2;
+				rc = OPTION_OVERFLOW;
 			}
 		} else if (c == '-') {
 			*result = -(*result);
 		}
 	}
 
-	if (rc == 0) {
+	if (rc == OPTION_OK) {
 		*scan_start = (char *)new_scan_start;
 	}
 
@@ -397,18 +397,18 @@ scan_u64_memory_size(char **scan_start, uint64_t* result)
 {
 	uintptr_t rc = scan_u64(scan_start, result);
 
-	if (0 == rc) {
+	if (OPTION_OK == rc) {
 		if (try_scan(scan_start, "T") || try_scan(scan_start, "t")) {
 			if (*result <= (((U_64)-1) >> 40)) {
 				*result <<= 40;
 			} else {
-				rc = 2;
+				rc = OPTION_OVERFLOW;
 			}
 		} else if (try_scan(scan_start, "G") || try_scan(scan_start, "g")) {
 			if (*result <= (((U_64)-1) >> 30)) {
 				*result <<= 30;
 			} else {
-				rc = 2;
+				rc = OPTION_OVERFLOW;
 			}
 		} else if (try_scan(scan_start, "M") || try_scan(scan_start, "m")) {
 			if (*result <= (((U_64)-1) >> 20)) {
@@ -420,7 +420,7 @@ scan_u64_memory_size(char **scan_start, uint64_t* result)
 			if (*result <= (((U_64)-1) >> 10)) {
 				*result <<= 10;
 			} else {
-				rc = 2;
+				rc = OPTION_OVERFLOW;
 			}
 		}
 	}
@@ -439,7 +439,7 @@ scan_udata_memory_size(char **scan_start, uintptr_t* result)
 {
 	uintptr_t rc = scan_udata(scan_start, result);
 
-	if (0 == rc) {
+	if (OPTION_OK == rc) {
 		/* Scan Memory String, and check for overflow */
 		if (try_scan(scan_start, "T") || try_scan(scan_start, "t")) {
 			if (0 != *result) {
@@ -449,26 +449,26 @@ scan_udata_memory_size(char **scan_start, uintptr_t* result)
 				} else
 	#endif /* defined(J9VM_ENV_DATA64) */
 				{
-					rc = 2;
+					rc = OPTION_OVERFLOW;
 				}
 			}
 		} else if (try_scan(scan_start, "G") || try_scan(scan_start, "g")) {
 			if (*result <= (((UDATA)-1) >> 30)) {
 				*result <<= 30;
 			} else {
-				rc = 2;
+				rc = OPTION_OVERFLOW;
 			}
 		} else if (try_scan(scan_start, "M") || try_scan(scan_start, "m")) {
 			if (*result <= (((UDATA)-1) >> 20)) {
 				*result <<= 20;
 			} else {
-				rc = 2;
+				rc = OPTION_OVERFLOW;
 			}
 		} else if (try_scan(scan_start, "K") || try_scan(scan_start, "k")) {
 			if (*result <= (((UDATA)-1) >> 10)) {
 				*result <<= 10;
 			} else {
-				rc = 2;
+				rc = OPTION_OVERFLOW;
 			}
 		}
 	}
