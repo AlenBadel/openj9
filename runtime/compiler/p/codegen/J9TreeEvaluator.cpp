@@ -11999,7 +11999,7 @@ J9::Power::CodeGenerator::inlineDirectCall(TR::Node *node, TR::Register *&result
             TR::Node * copyMemNode = TR::Node::createWithSymRef(TR::arrayset, 3, 3, dest, len, byteValue, node->getSymbolReference());
             copyMemNode->setByteCodeInfo(node->getByteCodeInfo());
 
-            TR::TreeEvaluator::setmemoryEvaluator(copyMemNode,cg);
+            TR::TreeEvaluator::arraysetEvaluator(copyMemNode,cg);
 
             if (node->getChild(0)->getRegister())
                cg->decReferenceCount(node->getChild(0));
