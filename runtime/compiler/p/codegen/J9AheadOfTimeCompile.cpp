@@ -375,6 +375,7 @@ uint8_t *J9::Power::AheadOfTimeCompile::initializeAOTRelocationHeader(TR::Iterat
          {
          if (comp->target().is64Bit())
             {
+            printf("Getting Relocation of TR_RamMethodSequence\n");
             uint8_t flags = (uint8_t) ((uintptr_t) relocation->getTargetAddress2());
             TR_ASSERT((flags & RELOCATION_CROSS_PLATFORM_FLAGS_MASK) == 0,  "reloFlags bits overlap cross-platform flags bits\n");
             *flagsCursor |= (flags & RELOCATION_RELOC_FLAGS_MASK);
