@@ -113,6 +113,7 @@ void J9::Power::AheadOfTimeCompile::processRelocations()
 
 uint8_t *J9::Power::AheadOfTimeCompile::initializeAOTRelocationHeader(TR::IteratedExternalRelocation *relocation)
    {
+   printf("Getting Relocation\n");
    TR::Compilation *comp = _cg->comp();
    TR_J9VMBase *fej9 = (TR_J9VMBase *)(_cg->fe());
    TR_SharedCache *sharedCache = fej9->sharedCache();
@@ -375,7 +376,6 @@ uint8_t *J9::Power::AheadOfTimeCompile::initializeAOTRelocationHeader(TR::Iterat
          {
          if (comp->target().is64Bit())
             {
-            printf("Getting Relocation of TR_RamMethodSequence\n");
             uint8_t flags = (uint8_t) ((uintptr_t) relocation->getTargetAddress2());
             TR_ASSERT((flags & RELOCATION_CROSS_PLATFORM_FLAGS_MASK) == 0,  "reloFlags bits overlap cross-platform flags bits\n");
             *flagsCursor |= (flags & RELOCATION_RELOC_FLAGS_MASK);
