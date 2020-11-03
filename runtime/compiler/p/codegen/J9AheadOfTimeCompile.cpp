@@ -113,7 +113,7 @@ void J9::Power::AheadOfTimeCompile::processRelocations()
 
 uint8_t *J9::Power::AheadOfTimeCompile::initializeAOTRelocationHeader(TR::IteratedExternalRelocation *relocation)
    {
-   printf("Getting Relocation\n");
+   //printf("Getting Relocation\n");
    TR::Compilation *comp = _cg->comp();
    TR_J9VMBase *fej9 = (TR_J9VMBase *)(_cg->fe());
    TR_SharedCache *sharedCache = fej9->sharedCache();
