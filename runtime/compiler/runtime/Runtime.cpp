@@ -1992,8 +1992,10 @@ char * feGetEnv2(const char * s, const void * vm)
 char * feGetEnv(const char * s)
    {
    char * envSpace = 0;
+   printf("Entered fsGetEnv\n");
    if (jitConfig)
       {
+      printf("Has a Valid jitConfig\n");
       envSpace = feGetEnv2(s, (void*)(jitConfig->javaVM));
       }
    return envSpace;

@@ -570,6 +570,7 @@ TR_J9VM::initializeProcessorType()
       if (processorDescription.processor == OMR_PROCESSOR_PPC_P10)
          {
          printf("JIT: Processor is P10\n");
+         #if 0
          static bool enableP10 = feGetEnv("TR_EnableExperimentalPower10Support");
          if (!enableP10)
             {
@@ -577,7 +578,9 @@ TR_J9VM::initializeProcessorType()
             processorDescription.processor = OMR_PROCESSOR_PPC_P9;
             processorDescription.physicalProcessor = OMR_PROCESSOR_PPC_P9;
             }
+         #endif
          }
+         
 
       if (debug("rios1"))
          processorDescription.processor = OMR_PROCESSOR_PPC_RIOS1;
