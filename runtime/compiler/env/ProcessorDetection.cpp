@@ -569,9 +569,11 @@ TR_J9VM::initializeProcessorType()
       // OMR once P10 chips become available.
       if (processorDescription.processor == OMR_PROCESSOR_PPC_P10)
          {
+         printf("JIT: Processor is P10\n");
          static bool enableP10 = feGetEnv("TR_EnableExperimentalPower10Support");
          if (!enableP10)
             {
+            printf("JIT: Set Processor to P9\n");
             processorDescription.processor = OMR_PROCESSOR_PPC_P9;
             processorDescription.physicalProcessor = OMR_PROCESSOR_PPC_P9;
             }
