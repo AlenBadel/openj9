@@ -1956,17 +1956,20 @@ char * feGetEnv2(const char * s, const void * vm)
    {
    if (TR::Options::_doNotProcessEnvVars)
       return 0;
-
+   printf("feGetEnv2:_doNotProcessEnvVars is disabled.\n");
    char * envSpace = NULL;
    PORT_ACCESS_FROM_PORT(((J9JavaVM *)vm)->portLibrary);
    int32_t envSize = j9sysinfo_get_env((char *)s, NULL, 0);
+   printf("feGetEnv2: envSize:%d\n", envSize);
    if (envSize != -1)
       {
       envSpace = (char *)j9mem_allocate_memory(envSize, J9MEM_CATEGORY_JIT);
-
+      printf("feGetEnv2: envSpace:%s\n", envSpace);
       if (NULL != envSpace)
          {
+         printf("feGetEnv2: Entered Fall back\n");
          envSize = j9sysinfo_get_env((char *)s, envSpace, envSize);
+         printf("feGetEnv2: Fallback envSize:%d\n", envSize);
          if (envSize != 0)
             {
             // failed to read the env: either mis-sized buffer or no env set
@@ -1975,6 +1978,7 @@ char * feGetEnv2(const char * s, const void * vm)
             }
           else
             {
+            printf("feGetEnv2: This shouldn't apply\n");
             int32_t res = j9sysinfo_get_env("TR_silentEnv", NULL, 0);
             // If TR_silentEnv is not found the result is -1. Setting TR_silentEnv prevents printing envVars
             bool verboseQuery = (res == -1 ? true : false);
@@ -1992,10 +1996,10 @@ char * feGetEnv2(const char * s, const void * vm)
 char * feGetEnv(const char * s)
    {
    char * envSpace = 0;
-   //printf("Entered fsGetEnv\n");
+   printf("Entered fsGetEnv\n");
    if (jitConfig)
       {
-      //printf("Has a Valid jitConfig\n");
+      printf("Has a Valid jitConfig\n");
       envSpace = feGetEnv2(s, (void*)(jitConfig->javaVM));
       }
    return envSpace;
