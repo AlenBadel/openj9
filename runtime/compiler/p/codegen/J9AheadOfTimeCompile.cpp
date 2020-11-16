@@ -113,8 +113,6 @@ void J9::Power::AheadOfTimeCompile::processRelocations()
 
 uint8_t *J9::Power::AheadOfTimeCompile::initializeAOTRelocationHeader(TR::IteratedExternalRelocation *relocation)
    {
-   printf("initalizeAOTRelocationHeader: Starting\n");
-   fflush(stdout);
    TR::Compilation *comp = _cg->comp();
    TR_J9VMBase *fej9 = (TR_J9VMBase *)(_cg->fe());
    TR_SharedCache *sharedCache = fej9->sharedCache();
@@ -156,8 +154,7 @@ uint8_t *J9::Power::AheadOfTimeCompile::initializeAOTRelocationHeader(TR::Iterat
    TR_RelocationRecord storage;
    TR_RelocationRecord *reloRecord = TR_RelocationRecord::create(&storage, reloRuntime, reloTarget, reinterpret_cast<TR_RelocationRecordBinaryTemplate *>(relocation->getRelocationData()));
 
-   printf("initalizeAOTRelocationHeader: targetKind:%d\n", targetKind);
-   fflush(stdout);
+   printf("initalizeAOTRelocationHeader: Processing kind:%d\n", targetKind);
    switch (targetKind)
       {
       case TR_MethodObject:
@@ -512,8 +509,6 @@ uint8_t *J9::Power::AheadOfTimeCompile::initializeAOTRelocationHeader(TR::Iterat
          break;
 
       default:
-         printf("initalizeAOTRelocationHeader: Using Common AOT Relocation Header\n");
-         fflush(stdout);
          // initializeCommonAOTRelocationHeader is currently in the process
          // of becoming the canonical place to initialize the platform agnostic
          // relocation headers; new relocation records' header should be
