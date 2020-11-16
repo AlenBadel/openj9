@@ -1058,7 +1058,7 @@ J9::AheadOfTimeCompile::dumpRelocationHeaderData(uint8_t *cursor, bool isVerbose
 
          uint32_t helperID = haRecord->helperID(reloTarget);
 
-         printf("dumpRelocationHeaderData: found HelperID:%d\n", helperID);
+         printf("dumpRelocationHeaderData: found HelperID:%d haRecord:%p\n", helperID, haRecord);
          fflush(stdout);
 
          traceMsg(self()->comp(), "%-6d", helperID);

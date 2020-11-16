@@ -171,6 +171,7 @@ void* TR_RuntimeHelperTable::getFunctionPointer(TR_RuntimeHelper h)
 
 void* TR_RuntimeHelperTable::getFunctionEntryPointOrConst(TR_RuntimeHelper h)
    {
+   printf("getFunctionEntryPointOrConst: Starting h:%d\n", h);
 #if defined(J9VM_OPT_JITSERVER) && defined(TR_HOST_POWER)
    // Fetch helper address directly from the client.
    // We only need to do this for Power because other platforms
