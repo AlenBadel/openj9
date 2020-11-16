@@ -1948,7 +1948,7 @@ int32_t J9::Power::PrivateLinkage::buildPrivateLinkageArgs(TR::Node             
             int32_t referenceNumber = callNode->getSymbolReference()->getReferenceNumber();
             intptr_t helperValue = (intptr_t)runtimeHelperValue((TR_RuntimeHelper)referenceNumber);
             printf("callNode Reference Number:%d helperValue:%p\n", referenceNumber, helperValue);
-            loadAddressConstant(cg(), callNode, helperValue,
+            loadAddressConstant(cg(), callNode, referenceNumber,
                dependencies->searchPreConditionRegister(TR::RealRegister::gr12), NULL, false, TR_HelperAddress);
             }
 
