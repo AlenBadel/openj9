@@ -1947,7 +1947,7 @@ int32_t J9::Power::PrivateLinkage::buildPrivateLinkageArgs(TR::Node             
             printf("Processing CHelper\n");
             int32_t helperID = callNode->getSymbolReference()->getReferenceNumber();
             intptr_t helperAddress = (intptr_t)runtimeHelperValue((TR_RuntimeHelper)helperID);
-            TR::SymbolReference *helperSymRef = cg()->getSymRefTab()->findOrCreateRuntimeHelper(helperID);
+            TR::SymbolReference *helperSymRef = cg()->getSymRefTab()->findOrCreateRuntimeHelper((TR_RuntimeHelper)helperID);
 
             printf("cHelper: helperID:%d helperValue:%p\n", helperID, helperAddress);
             printf("cHelper: helperAddress from symbol reference:%p\n", helperSymRef->getMethodAddress());
