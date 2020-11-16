@@ -1008,6 +1008,8 @@ J9::AheadOfTimeCompile::initializeCommonAOTRelocationHeader(TR::IteratedExternal
 uint8_t *
 J9::AheadOfTimeCompile::dumpRelocationHeaderData(uint8_t *cursor, bool isVerbose)
    {
+   printf("dumpRelocationHeaderData: Starting\n");
+   fflush(stdout);
    TR::Compilation *comp = TR::comp();
    TR_RelocationRuntime *reloRuntime = comp->reloRuntime();
    TR_RelocationTarget *reloTarget = reloRuntime->reloTarget();
@@ -1023,6 +1025,9 @@ J9::AheadOfTimeCompile::dumpRelocationHeaderData(uint8_t *cursor, bool isVerbose
    uint8_t *endOfCurrentRecord = cursor + reloRecord->size(reloTarget);
 
    bool orderedPair = isOrderedPair(kind);
+
+   printf("dumpRelocationHeaderData: kind:%d\n", kind);
+   fflush(stdout);
 
    // dumpRelocationHeaderData is currently in the process of becoming the
    // the canonical place to dump the relocation header data; new relocation
