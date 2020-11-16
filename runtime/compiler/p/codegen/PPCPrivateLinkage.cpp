@@ -1951,7 +1951,7 @@ int32_t J9::Power::PrivateLinkage::buildPrivateLinkageArgs(TR::Node             
 
             printf("cHelper: helperID:%d helperValue:%p\n", helperID, helperAddress);
             printf("cHelper: helperAddress from symbol reference:%p\n", helperSymRef->getMethodAddress());
-            cg()->loadAddressConstantFixed(callNode, (intptr_t)(helperSymRef->getMethodAddress()), dependencies->searchPreConditionRegister(TR::RealRegister::gr12), NULL, NULL, -1);
+            cg()->loadAddressConstantFixed(callNode, (intptr_t)(helperSymRef->getMethodAddress()), dependencies->searchPreConditionRegister(TR::RealRegister::gr12), NULL, NULL, -1, false);
             
             //loadAddressConstant(cg(), callNode, helperID,
             //  dependencies->searchPreConditionRegister(TR::RealRegister::gr12), NULL, false, TR_HelperAddress);
