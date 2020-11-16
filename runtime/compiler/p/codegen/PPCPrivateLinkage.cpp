@@ -1945,7 +1945,10 @@ int32_t J9::Power::PrivateLinkage::buildPrivateLinkageArgs(TR::Node             
          else
             {
             printf("Processing CHelper\n");
-            loadAddressConstant(cg(), callNode, (int64_t)runtimeHelperValue((TR_RuntimeHelper)callNode->getSymbolReference()->getReferenceNumber()),
+            int32_t referenceNumber = callNode->getSymbolReference()->getReferenceNumber();
+            intptr_t helperValue = (intptr_t)runtimeHelperValue((TR_RuntimeHelper)referenceNumber);
+            printf("callNode Reference Number:%d helperValue:%p\n", referenceNumber, helperValue);
+            loadAddressConstant(cg(), callNode, helperValue,
                dependencies->searchPreConditionRegister(TR::RealRegister::gr12), NULL, false, TR_HelperAddress);
             }
 
