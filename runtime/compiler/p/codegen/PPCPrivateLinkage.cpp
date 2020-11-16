@@ -1950,7 +1950,7 @@ int32_t J9::Power::PrivateLinkage::buildPrivateLinkageArgs(TR::Node             
             TR::SymbolReference *helperSymRef = cg()->getSymRefTab()->findOrCreateRuntimeHelper(helperID);
 
             printf("cHelper: helperID:%d helperValue:%p\n", helperID, helperAddress);
-            printf("cHelper: helperAddress from symbol reference:%p\n", (intptr_t)(helperSymRef->getMethodAddress()));
+            printf("cHelper: helperAddress from symbol reference:%p\n", helperSymRef->getMethodAddress());
             cg()->loadAddressConstantFixed(callNode, (intptr_t)(helperSymRef->getMethodAddress()), dependencies->searchPreConditionRegister(TR::RealRegister::gr12), NULL, NULL, -1);
             
             //loadAddressConstant(cg(), callNode, helperID,
