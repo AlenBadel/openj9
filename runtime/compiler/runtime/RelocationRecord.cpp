@@ -188,6 +188,7 @@ TR_RelocationRecordGroup::handleRelocation(TR_RelocationRuntime *reloRuntime,
       {
       case TR_RelocationRecordAction::apply:
          {
+         printf("handleRelocation: Applying Relocation\n");
          reloRecord->preparePrivateData(reloRuntime, reloTarget);
          return reloRecord->applyRelocationAtAllOffsets(reloRuntime, reloTarget, reloOrigin);
          }
@@ -1327,6 +1328,8 @@ TR_RelocationRecordHelperAddress::preparePrivateData(TR_RelocationRuntime *reloR
    {
    TR_RelocationRecordHelperAddressPrivateData *reloPrivateData = &(privateData()->helperAddress);
 
+   // AB: Called from jitConfig constructor
+   printf("preparePrivateData: Creating jitConfig from reloRuntime. reloRuntime:%p\n", reloRuntime);
    J9JITConfig *jitConfig = reloRuntime->jitConfig();
    TR_ASSERT(jitConfig != NULL, "Relocation runtime doesn't have a jitConfig!");
    J9JavaVM *javaVM = jitConfig->javaVM;
