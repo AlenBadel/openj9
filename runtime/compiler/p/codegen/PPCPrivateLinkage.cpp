@@ -1947,14 +1947,14 @@ int32_t J9::Power::PrivateLinkage::buildPrivateLinkageArgs(TR::Node             
             printf("Processing CHelper\n");
             int32_t helperID = callNode->getSymbolReference()->getReferenceNumber();
             intptr_t helperAddress = (intptr_t)runtimeHelperValue((TR_RuntimeHelper)helperID);
-            TR::SymbolReference *helperSymRef = cg()->getSymRefTab()->findOrCreateRuntimeHelper((TR_RuntimeHelper)helperID);
+            //TR::SymbolReference *helperSymRef = cg()->getSymRefTab()->findOrCreateRuntimeHelper((TR_RuntimeHelper)helperID);
 
             printf("cHelper: helperID:%d helperValue:%p\n", helperID, helperAddress);
             printf("cHelper: helperAddress from symbol reference:%p\n", helperSymRef->getMethodAddress());
-            cg()->loadAddressConstantFixed(callNode, (intptr_t)(helperSymRef->getMethodAddress()), dependencies->searchPreConditionRegister(TR::RealRegister::gr12), NULL, NULL, -1, false);
+            //cg()->loadAddressConstantFixed(callNode, (intptr_t)(helperSymRef->getMethodAddress()), dependencies->searchPreConditionRegister(TR::RealRegister::gr12), NULL, NULL, -1, false);
             
-            //loadAddressConstant(cg(), callNode, helperID,
-            //  dependencies->searchPreConditionRegister(TR::RealRegister::gr12), NULL, false, TR_HelperAddress);
+            loadAddressConstant(cg(), callNode, helperAddress,
+              dependencies->searchPreConditionRegister(TR::RealRegister::gr12), NULL, false, TR_DataAddress);
             }
 
          }
