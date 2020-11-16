@@ -1052,9 +1052,14 @@ J9::AheadOfTimeCompile::dumpRelocationHeaderData(uint8_t *cursor, bool isVerbose
 
       case TR_HelperAddress:
          {
+         printf("dumpRelocationHeaderData: reloTarget:%p, offsetSize:%d, endOfCurrentRecord:%d, orderedPair:%d\n", reloTarget, offsetSize, *endOfCurrentRecord, orderedPair);
+         fflush(stdout);
          TR_RelocationRecordHelperAddress *haRecord = reinterpret_cast<TR_RelocationRecordHelperAddress *>(reloRecord);
 
          uint32_t helperID = haRecord->helperID(reloTarget);
+
+         printf("dumpRelocationHeaderData: found HelperID:%d\n", helperID);
+         fflush(stdout);
 
          traceMsg(self()->comp(), "%-6d", helperID);
          self()->traceRelocationOffsets(startOfOffsets, offsetSize, endOfCurrentRecord, orderedPair);
