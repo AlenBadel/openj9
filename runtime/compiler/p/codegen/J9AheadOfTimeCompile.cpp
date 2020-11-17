@@ -257,6 +257,9 @@ uint8_t *J9::Power::AheadOfTimeCompile::initializeAOTRelocationHeader(TR::Iterat
          *(uintptr_t *) cursor = tempSR->getOffset(); // offset
          cursor += SIZEPOINTER;
 
+         printf("initalizeAOTRelocationHeader: inlinedSiteIndex:%p constantPool:%p getCPIndex:%p getOffset:%p\n", inlinedSiteIndex, tempSR->getOwningMethod(comp)->constantPool(), tempSR->getCPIndex(), tempSR->getOffset());
+         fflush(stdout);
+
          break;
          }
 
