@@ -1008,8 +1008,6 @@ J9::AheadOfTimeCompile::initializeCommonAOTRelocationHeader(TR::IteratedExternal
 uint8_t *
 J9::AheadOfTimeCompile::dumpRelocationHeaderData(uint8_t *cursor, bool isVerbose)
    {
-   printf("dumpRelocationHeaderData: Starting\n");
-   fflush(stdout);
    TR::Compilation *comp = TR::comp();
    TR_RelocationRuntime *reloRuntime = comp->reloRuntime();
    TR_RelocationTarget *reloTarget = reloRuntime->reloTarget();
@@ -1025,9 +1023,6 @@ J9::AheadOfTimeCompile::dumpRelocationHeaderData(uint8_t *cursor, bool isVerbose
    uint8_t *endOfCurrentRecord = cursor + reloRecord->size(reloTarget);
 
    bool orderedPair = isOrderedPair(kind);
-
-   printf("dumpRelocationHeaderData: kind:%d\n", kind);
-   fflush(stdout);
 
    // dumpRelocationHeaderData is currently in the process of becoming the
    // the canonical place to dump the relocation header data; new relocation
@@ -1052,14 +1047,14 @@ J9::AheadOfTimeCompile::dumpRelocationHeaderData(uint8_t *cursor, bool isVerbose
 
       case TR_HelperAddress:
          {
-         printf("dumpRelocationHeaderData: reloTarget:%p, offsetSize:%d, endOfCurrentRecord:%d, orderedPair:%d\n", reloTarget, offsetSize, *endOfCurrentRecord, orderedPair);
-         fflush(stdout);
+         //printf("dumpRelocationHeaderData: reloTarget:%p, offsetSize:%d, endOfCurrentRecord:%d, orderedPair:%d\n", reloTarget, offsetSize, *endOfCurrentRecord, orderedPair);
+         //fflush(stdout);
          TR_RelocationRecordHelperAddress *haRecord = reinterpret_cast<TR_RelocationRecordHelperAddress *>(reloRecord);
 
          uint32_t helperID = haRecord->helperID(reloTarget);
 
-         printf("dumpRelocationHeaderData: found HelperID:%d haRecord:%p\n", helperID, haRecord);
-         fflush(stdout);
+         //printf("dumpRelocationHeaderData: found HelperID:%d haRecord:%p\n", helperID, haRecord);
+         //fflush(stdout);
 
          traceMsg(self()->comp(), "%-6d", helperID);
          self()->traceRelocationOffsets(startOfOffsets, offsetSize, endOfCurrentRecord, orderedPair);
