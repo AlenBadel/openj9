@@ -154,7 +154,6 @@ uint8_t *J9::Power::AheadOfTimeCompile::initializeAOTRelocationHeader(TR::Iterat
    TR_RelocationRecord storage;
    TR_RelocationRecord *reloRecord = TR_RelocationRecord::create(&storage, reloRuntime, reloTarget, reinterpret_cast<TR_RelocationRecordBinaryTemplate *>(relocation->getRelocationData()));
 
-   printf("initalizeAOTRelocationHeader: Processing kind:%d\n", targetKind);
    switch (targetKind)
       {
       case TR_MethodObject:
@@ -237,6 +236,10 @@ uint8_t *J9::Power::AheadOfTimeCompile::initializeAOTRelocationHeader(TR::Iterat
          uint8_t flags = (uint8_t) recordInfo->data3;
          TR_ASSERT((flags & RELOCATION_CROSS_PLATFORM_FLAGS_MASK) == 0,  "reloFlags bits overlap cross-platform flags bits\n");
          *flagsCursor |= (flags & RELOCATION_RELOC_FLAGS_MASK);
+
+         printf("initalizeAOTRelocationHeader: Processing TR_DataAddress\n");
+         printf("initalizeAOTRelocationHeader: tempSR(data1):%p inlinedSiteIndex(data2):%d flags(seqkind-data3):%d\n", tempSR, inlinedSiteIndex, flags);
+         fflush(stdout);
 
          // next word is the address of the constant pool to which the index refers
          inlinedSiteIndex = self()->findCorrectInlinedSiteIndex(tempSR->getOwningMethod(comp)->constantPool(), inlinedSiteIndex);
