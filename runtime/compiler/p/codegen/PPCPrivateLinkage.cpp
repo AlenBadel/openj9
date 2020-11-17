@@ -1952,11 +1952,13 @@ int32_t J9::Power::PrivateLinkage::buildPrivateLinkageArgs(TR::Node             
             printf("CHelper: helperID:%d helperValue:%p\n", helperID, helperAddress);
             //printf("cHelper: helperAddress from symbol reference:%p\n", helperSymRef->getMethodAddress());
             //cg()->loadAddressConstantFixed(callNode, (intptr_t)(helperSymRef->getMethodAddress()), dependencies->searchPreConditionRegister(TR::RealRegister::gr12), NULL, NULL, -1, false);
-            
-            loadAddressConstant(cg(), callNode, helperAddress,
-              dependencies->searchPreConditionRegister(TR::RealRegister::gr12), NULL, false, TR_DataAddress);
-            }
 
+            if (cg->comp()->target().cpu.isAtLeast(OMR_PROCESSOR_PPC_P10))
+               {
+               TR::Instruction *cursor = generateTrg1ImmInstruction(cg(), TR::InstOpCode::Op_pload, callNode, dependencies->searchPreConditionRegister(TR::RealRegister::gr12), 0, NULL);
+               cg->findOrCreateAddressConstant(&helperAddress, TR::Address, cursor, NULL, NULL, NULL, callNode, false);
+               }
+            }
          }
       else if (comp()->target().isAIX() || (comp()->target().isLinux() && comp()->target().is64Bit()))
          {
