@@ -248,10 +248,11 @@ J9::AheadOfTimeCompile::initializeCommonAOTRelocationHeader(TR::IteratedExternal
 
       case TR_AbsoluteHelperAddress:
          {
+         printf("initalizeCommonAOTRelocationHeader(AbsoluteHelperAddress): Processing AbsoluteHelperAddress\n");
          TR_RelocationRecordAbsoluteHelperAddress *ahaRecord = reinterpret_cast<TR_RelocationRecordAbsoluteHelperAddress *>(reloRecord);
          TR::SymbolReference *symRef = reinterpret_cast<TR::SymbolReference *>(relocation->getTargetAddress());
-
          ahaRecord->setHelperID(reloTarget, static_cast<uint32_t>(symRef->getReferenceNumber()));
+         printf("initalizeCommonAOTRelocationHeader(AbsoluteHelperAddress): ahaRecord:%p targetAddress:%p referenceNumber(helperID):%d\n", ahaRecord, relocation->getTargetAddress(), symRef->getReferenceNumber());
          }
          break;
 
@@ -1198,10 +1199,12 @@ J9::AheadOfTimeCompile::dumpRelocationHeaderData(uint8_t *cursor, bool isVerbose
 
       case TR_AbsoluteHelperAddress:
          {
+         printf("dumpRelocationHeaderData: Dumping AbsoluteHelperAddress\n");
          TR_RelocationRecordAbsoluteHelperAddress *ahaRecord = reinterpret_cast<TR_RelocationRecordAbsoluteHelperAddress *>(reloRecord);
-
+         printf("dumpRelocationHeaderData: ahaRecord:%p\n", ahaRecord);
          uint32_t helperID = ahaRecord->helperID(reloTarget);
-
+         printf("dumpRelocationHeaderData: helperID:%d\n", helperID);
+         //printf("dumpRelocationHeaderData: flags:%d\n", reloFlags(reloTarget));
          traceMsg(self()->comp(), "%-6d", helperID);
          self()->traceRelocationOffsets(cursor, offsetSize, endOfCurrentRecord, orderedPair);
          if (isVerbose)

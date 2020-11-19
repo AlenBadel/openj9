@@ -207,13 +207,20 @@ TR_PPC64RelocationTarget::storeAddressSequence(uint8_t *address, uint8_t *reloLo
    uintptr_t highValue;
 
    uintptr_t value = (uintptr_t)address;
-   uint32_t *patchAddr = (uint32_t *)((U_8 *)reloLocation+ (reloRuntime()->comp()->target().cpu.isBigEndian()?2:0));
+   uint32_t *patchAddr = (uint32_t *)((U_8 *)reloLocation + (reloRuntime()->comp()->target().cpu.isBigEndian()?2:0));
+
+   printf("storeAddressSequence: value:%p\n", value);
+   printf("storeAddressSequence: reloLocation:%p\n", reloLocation);
+   printf("storeAddressSequence: seqNumber:%d\n", seqNumber);
+   printf("storeAddressSequence: patchAddr:%p\n", patchAddr);
+   //TR_ASSERT_FATAL(false, "Debug Breakpoint");
 
    if (seqNumber % 2 == 0)
       highValue = HI_VALUE(value);
    else
       highValue = value>>16;
 
+   printf("storeAddressSequence: highValue:%p\n", highValue);
    switch (seqNumber)
       {
       case 1:
@@ -264,6 +271,7 @@ TR_PPC64RelocationTarget::storeAddressSequence(uint8_t *address, uint8_t *reloLo
    *patchAddr2 |= value2;
    *patchAddr3 |= value3;
    *patchAddr4 |= value4;
+   printf("storeAddressSequence: Finished Patching\n");
    }
 
 void

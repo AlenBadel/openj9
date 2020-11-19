@@ -634,6 +634,7 @@ TR_RelocationRecord::applyRelocationAtAllOffsets(TR_RelocationRuntime *reloRunti
       {
       if (wideOffsets(reloTarget))
          {
+         printf("isOrderedPairRelocation with wide offsets\n");
          int32_t *offsetsBase = (int32_t *) (((uint8_t*)_record) + bytesInHeaderAndPayload());
          int32_t *endOfOffsets = (int32_t *) nextBinaryRecord(reloTarget);
          for (int32_t *offsetPtr = offsetsBase;offsetPtr < endOfOffsets; offsetPtr+=2)
@@ -653,6 +654,7 @@ TR_RelocationRecord::applyRelocationAtAllOffsets(TR_RelocationRuntime *reloRunti
          }
       else
          {
+         printf("isOrderedPairRelocation without wide offsets\n");
          int16_t *offsetsBase = (int16_t *) (((uint8_t*)_record) + bytesInHeaderAndPayload());
          int16_t *endOfOffsets = (int16_t *) nextBinaryRecord(reloTarget);
          for (int16_t *offsetPtr = offsetsBase;offsetPtr < endOfOffsets; offsetPtr+=2)
@@ -675,12 +677,16 @@ TR_RelocationRecord::applyRelocationAtAllOffsets(TR_RelocationRuntime *reloRunti
       {
       if (wideOffsets(reloTarget))
          {
+         printf("non-isOrderedPairRelocation with wide offsets\n");
          int32_t *offsetsBase = (int32_t *) (((uint8_t*)_record) + bytesInHeaderAndPayload());
          int32_t *endOfOffsets = (int32_t *) nextBinaryRecord(reloTarget);
-         for (int32_t *offsetPtr = offsetsBase;offsetPtr < endOfOffsets; offsetPtr++)
+         printf("applyRelocationAtAllOffsets: endOfOffsets:%p, offsetsBase:%p\n", endOfOffsets, offsetsBase);
+         printf("applyRelocationAtAllOffsets: record:%p bytesInHeaderAndPayLoad:%d\n", _record, bytesInHeaderAndPayload());
+         for (int32_t *offsetPtr = offsetsBase; offsetPtr < endOfOffsets; offsetPtr++)
             {
             int32_t offset = *offsetPtr;
             uint8_t *reloLocation = reloOrigin + offset;
+            printf("applyRelocationAtAllOffsets: reloLocation:%p reloOrigin:%p offset:%d\n", reloLocation, reloOrigin, offset);
             RELO_LOG(reloRuntime->reloLogger(), 6, "\treloLocation: from %p at %p (offset %x)\n", offsetPtr, reloLocation, offset);
             int32_t rc = applyRelocation(reloRuntime, reloTarget, reloLocation);
             if (rc != 0)
@@ -692,12 +698,14 @@ TR_RelocationRecord::applyRelocationAtAllOffsets(TR_RelocationRuntime *reloRunti
          }
       else
          {
+         printf("non-isOrderedPairRelocation without wide offsets\n");
          int16_t *offsetsBase = (int16_t *) (((uint8_t*)_record) + bytesInHeaderAndPayload());
          int16_t *endOfOffsets = (int16_t *) nextBinaryRecord(reloTarget);
          for (int16_t *offsetPtr = offsetsBase;offsetPtr < endOfOffsets; offsetPtr++)
             {
             int16_t offset = *offsetPtr;
             uint8_t *reloLocation = reloOrigin + offset;
+            printf("reloLocation:%p reloOrigin:%p offset:%p\n", reloLocation, reloOrigin, offset);
             RELO_LOG(reloRuntime->reloLogger(), 6, "\treloLocation: from %p at %p (offset %x)\n", offsetPtr, reloLocation, offset);
             int32_t rc = applyRelocation(reloRuntime, reloTarget, reloLocation);
             if (rc != 0)
@@ -755,6 +763,9 @@ int32_t
 TR_RelocationRecordWithOffset::applyRelocation(TR_RelocationRuntime *reloRuntime, TR_RelocationTarget *reloTarget, uint8_t *reloLocation)
    {
    TR_RelocationRecordWithOffsetPrivateData *reloPrivateData = &(privateData()->offset);
+   printf("applyRelocation: reloPrivateData:%p AddressToPatch:%p\n", reloPrivateData, reloPrivateData->_addressToPatch);
+   printf("applyRelocation: reloTarget:%p sequence number:%d\n", reloTarget, reloFlags(reloTarget));
+   printf("applyRelocation: reloLocation:%p\n", reloLocation);
    reloTarget->storeAddressSequence(reloPrivateData->_addressToPatch, reloLocation, reloFlags(reloTarget));
 
    return 0;
@@ -1380,8 +1391,9 @@ TR_RelocationRecordAbsoluteHelperAddress::applyRelocation(TR_RelocationRuntime *
    {
    TR_RelocationRecordHelperAddressPrivateData *reloPrivateData = &(privateData()->helperAddress);
    uint8_t *helperAddress = reloPrivateData->_helper;
-
-   reloTarget->storeAddress(helperAddress, reloLocation);
+   printf("applyRelocation(AbsoluteHelperAddress): Applying Relocation. helperAddress:%p kind:%p\n", helperAddress, reloFlags(reloTarget));
+   //reloTarget->storeAddress(helperAddress, reloLocation);
+   reloTarget->storeAddressSequence(helperAddress, reloLocation, reloFlags(reloTarget));
    return 0;
    }
 
@@ -1604,7 +1616,7 @@ int32_t
 TR_RelocationRecordDataAddress::applyRelocation(TR_RelocationRuntime *reloRuntime, TR_RelocationTarget *reloTarget, uint8_t *reloLocation)
    {
    uint8_t *newAddress = findDataAddress(reloRuntime, reloTarget);
-
+   printf("applyRelocation(DataAddress): Applying Relocation DataAddress. reloLocation:%p\n", reloLocation);
 #if defined(J9VM_OPT_JITSERVER)
    RELO_LOG(reloRuntime->reloLogger(), 6, "applyRelocation old ptr %p, new ptr %p\n", reloTarget->loadPointer(reloLocation), newAddress);
 #endif
@@ -1618,7 +1630,9 @@ TR_RelocationRecordDataAddress::applyRelocation(TR_RelocationRuntime *reloRuntim
       aotStats->numRuntimeClassAddressReloUnresolvedCP++;
       }
 
+   printf("applyRelocation(DataAddress): reloLocation:%p (Shouldn't change)\n", reloLocation);
    reloTarget->storeAddressSequence(newAddress, reloLocation, reloFlags(reloTarget));
+   //TR_ASSERT_FATAL(false, "Breakpoint");
    return 0;
    }
 

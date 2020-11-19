@@ -1552,7 +1552,8 @@ int32_t J9::Power::PrivateLinkage::buildPrivateLinkageArgs(TR::Node             
       {
       TR_ASSERT(numIntArgRegs > 0, "This code doesn't handle passing this implicit arg on the stack");
       TR::Register *vmThreadArgRegister = cg()->allocateRegister();
-      generateTrg1Src1Instruction(cg(), TR::InstOpCode::mr, callNode, vmThreadArgRegister, cg()->getMethodMetaDataRegister());
+      TR::Instruction *cursor = generateTrg1Src1Instruction(cg(), TR::InstOpCode::mr, callNode, vmThreadArgRegister, cg()->getMethodMetaDataRegister());
+      printf("-1 Instruction:%p\n", cursor);
       dependencies->addPreCondition(vmThreadArgRegister, properties.getIntegerArgumentRegister(numIntegerArgs));
       if (resType.getDataType() == TR::NoType)
          dependencies->addPostCondition(vmThreadArgRegister, properties.getIntegerArgumentRegister(numIntegerArgs));
@@ -1939,10 +1940,18 @@ int32_t J9::Power::PrivateLinkage::buildPrivateLinkageArgs(TR::Node             
             }
          else
             {
-            loadAddressConstant(cg(), callNode, (int64_t)runtimeHelperValue((TR_RuntimeHelper)callNode->getSymbolReference()->getReferenceNumber()),
+            int32_t helperIndex = callNode->getSymbolReference()->getReferenceNumber();
+            int64_t helperAddress = (int64_t)runtimeHelperValue((TR_RuntimeHelper)helperIndex);
+            printf("TR_CHelper: Adding Helper with index:%d address:%p\n", helperIndex, helperAddress);
+            loadAddressConstant(cg(), callNode, (int64_t)helperAddress,
                dependencies->searchPreConditionRegister(TR::RealRegister::gr12));
+            //loadAddressConstant(cg(), callNode, (int64_t)runtimeHelperValue((TR_RuntimeHelper)callNode->getSymbolReference()->getReferenceNumber()),
+               //dependencies->searchPreConditionRegister(TR::RealRegister::gr12), NULL, false, TR_AbsoluteHelperAddress);
+            //loadAddressConstant(cg(), callNode, (int64_t)callNode->getSymbolReference(),
+               //dependencies->searchPreConditionRegister(TR::RealRegister::gr12), NULL, false, TR_AbsoluteHelperAddress);
+            //loadAddressConstant(cg(), callNode, (int64_t)callNode->getSymbolReference(),
+               //dependencies->searchPreConditionRegister(TR::RealRegister::gr12), NULL, false, TR_DataAddress);
             }
-
          }
       else if (comp()->target().isAIX() || (comp()->target().isLinux() && comp()->target().is64Bit()))
          {
@@ -1988,6 +1997,7 @@ int32_t J9::Power::PrivateLinkage::buildPrivateLinkageArgs(TR::Node             
       {
       for (argIndex = 0; argIndex < memArgs; argIndex++)
          {
+         printf("A-MemoryArgs\n");
          TR::Register *aReg = pushToMemory[argIndex].argRegister;
          generateMemSrc1Instruction(cg(), pushToMemory[argIndex].opCode, callNode, pushToMemory[argIndex].argMemory, aReg);
          cg()->stopUsingRegister(aReg);

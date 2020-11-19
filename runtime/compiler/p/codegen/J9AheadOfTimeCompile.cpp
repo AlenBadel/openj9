@@ -392,6 +392,28 @@ uint8_t *J9::Power::AheadOfTimeCompile::initializeAOTRelocationHeader(TR::Iterat
          cursor = relocation->getRelocationData() + TR_RelocationRecord::getSizeOfAOTRelocationHeader(static_cast<TR_RelocationRecordType>(targetKind));
          }
          break;
+      
+      case TR_AbsoluteHelperAddress:
+         {
+         printf("initalizeCommonAOTRelocationHeader(AbsoluteHelperAddress): Processing AbsoluteHelperAddress\n");
+         TR_RelocationRecordAbsoluteHelperAddress *ahaRecord = reinterpret_cast<TR_RelocationRecordAbsoluteHelperAddress *>(reloRecord);
+         // Set Flags
+         uint8_t flags = static_cast<uint8_t>(reinterpret_cast<uintptr_t>(relocation->getTargetAddress2()));
+         TR_ASSERT((flags & RELOCATION_CROSS_PLATFORM_FLAGS_MASK) == 0,  "reloFlags bits overlap cross-platform flags bits\n");
+         ahaRecord->setReloFlags(reloTarget, flags);
+         printf("TR_AbsoluteHelperAddress: flags%d\n", flags);
+
+         // Set Helper ID.
+         TR::SymbolReference *symRef = reinterpret_cast<TR::SymbolReference *>(relocation->getTargetAddress());
+         ahaRecord->setHelperID(reloTarget, static_cast<uint32_t>(symRef->getReferenceNumber()));
+         printf("TR_AbsoluteHelperAddress: helperID:%d\n", symRef->getReferenceNumber());
+
+         //uintptr_t offset = static_cast<uintptr_t>(relocation->getTargetAddress() - aotMethodCodeStart);
+         //ahaRecord->setOffset(reloTarget, symRef->getOffset());
+         //printf("TR_AbsoluteHelperAddress: offset:%d\n", symRef->getOffset());
+         //printf("initalizeCommonAOTRelocationHeader(AbsoluteHelperAddress): ahaRecord:%p targetAddress:%p referenceNumber(helperID):%d aotMethodCodeStart:%p\n", ahaRecord, relocation->getTargetAddress(), symRef->getReferenceNumber());
+         break;
+         }
 
       default:
          cursor = self()->initializeCommonAOTRelocationHeader(relocation, reloRecord);
