@@ -1553,7 +1553,6 @@ int32_t J9::Power::PrivateLinkage::buildPrivateLinkageArgs(TR::Node             
       TR_ASSERT(numIntArgRegs > 0, "This code doesn't handle passing this implicit arg on the stack");
       TR::Register *vmThreadArgRegister = cg()->allocateRegister();
       TR::Instruction *cursor = generateTrg1Src1Instruction(cg(), TR::InstOpCode::mr, callNode, vmThreadArgRegister, cg()->getMethodMetaDataRegister());
-      printf("-1 Instruction:%p\n", cursor);
       dependencies->addPreCondition(vmThreadArgRegister, properties.getIntegerArgumentRegister(numIntegerArgs));
       if (resType.getDataType() == TR::NoType)
          dependencies->addPostCondition(vmThreadArgRegister, properties.getIntegerArgumentRegister(numIntegerArgs));
