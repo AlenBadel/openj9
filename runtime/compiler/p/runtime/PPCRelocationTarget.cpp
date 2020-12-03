@@ -234,14 +234,14 @@ TR_PPC64RelocationTarget::storeAddressSequence(uint8_t *address, uint8_t *reloLo
          patchAddr2 = (uint16_t *)&patchAddr[1];
          patchAddr3 = (uint16_t *)&patchAddr[3];
          patchAddr4 = (uint16_t *)&patchAddr[4];
-         printf("storeAddressSequence: value1%p\n", value1);
-         printf("storeAddressSequence: value2%p\n", value2);
-         printf("storeAddressSequence: value3%p\n", value3);
-         printf("storeAddressSequence: value4%p\n", value4);
-         printf("storeAddressSequence: patchAddr1%p\n", patchAddr1);
-         printf("storeAddressSequence: patchAddr2%p\n", patchAddr2);
-         printf("storeAddressSequence: patchAddr3%p\n", patchAddr3);
-         printf("storeAddressSequence: patchAddr4%p\n", patchAddr4);
+         printf("storeAddressSequence: value1:%p\n", value1);
+         printf("storeAddressSequence: value2:%p\n", value2);
+         printf("storeAddressSequence: value3:%p\n", value3);
+         printf("storeAddressSequence: value4:%p\n", value4);
+         printf("storeAddressSequence: patchAddr1:%p\n", patchAddr1);
+         printf("storeAddressSequence: patchAddr2:%p\n", patchAddr2);
+         printf("storeAddressSequence: patchAddr3:%p\n", patchAddr3);
+         printf("storeAddressSequence: patchAddr4:%p\n", patchAddr4);
          break;
          }
       case 3:
