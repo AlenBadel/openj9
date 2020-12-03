@@ -236,7 +236,7 @@ uint8_t *J9::Power::AheadOfTimeCompile::initializeAOTRelocationHeader(TR::Iterat
             uintptr_t offset = relocation->getTargetAddress()
                      ? static_cast<uintptr_t>(relocation->getTargetAddress() - aotMethodCodeStart)
                      : 0x0;
-            printf("FixedSequenceAddress2: offset/targetaddress:%p aotMethodCodeStat:%p\n", offset, aotMethodCodeStart);
+            printf("FixedSequenceAddress2: offset:%p targetaddress:%p aotMethodCodeStat:%p\n", offset, relocation->getTargetAddress(), aotMethodCodeStart);
             rwoRecord->setOffset(reloTarget, offset);
             }
          else
