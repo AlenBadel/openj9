@@ -1392,8 +1392,7 @@ TR_RelocationRecordAbsoluteHelperAddress::applyRelocation(TR_RelocationRuntime *
    TR_RelocationRecordHelperAddressPrivateData *reloPrivateData = &(privateData()->helperAddress);
    uint8_t *helperAddress = reloPrivateData->_helper;
    printf("applyRelocation(AbsoluteHelperAddress): Applying Relocation. helperAddress:%p kind:%p\n", helperAddress, reloFlags(reloTarget));
-   //reloTarget->storeAddress(helperAddress, reloLocation);
-   reloTarget->storeAddressSequence(helperAddress, reloLocation, reloFlags(reloTarget));
+   reloTarget->storeAddress(helperAddress, reloLocation);
    return 0;
    }
 
