@@ -1940,7 +1940,7 @@ int32_t J9::Power::PrivateLinkage::buildPrivateLinkageArgs(TR::Node             
          else
             {
             loadAddressConstant(cg(), callNode, (int64_t)runtimeHelperValue((TR_RuntimeHelper)callNode->getSymbolReference()->getReferenceNumber()),
-               dependencies->searchPreConditionRegister(TR::RealRegister::gr12));
+               dependencies->searchPreConditionRegister(TR::RealRegister::gr12), NULL, false, TR_AbsoluteHelperAddress);
             }
 
          }
