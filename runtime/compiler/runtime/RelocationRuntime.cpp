@@ -344,14 +344,33 @@ TR_RelocationRuntime::prepareRelocateAOTCodeAndData(J9VMThread* vmThread,
             // newCodeStart points after a OMR::CodeCacheMethodHeader, but tempCodeStart points at a OMR::CodeCacheMethodHeader
             // to keep alignment consistent, back newCodeStart over the OMR::CodeCacheMethodHeader
             //we can still do the code start without the bodyInfo! need check in cleanup!
-            newCodeStart = allocateSpaceInCodeCache(codeSize-sizeof(OMR::CodeCacheMethodHeader));
+
+            // ------------------------- Alignment Prototype
+            PORT_ACCESS_FROM_JAVAVM(javaVM());
+            // Method Entry Alignment Boundary. Within the JIT, this is defined per codegen
+            // TODO: Replace with a per-architecture defined offset. See getJitMethodEntryAlignmentBoundary
+            // Power - Uses 128.
+            uint32_t boundary = 128;
+            // Total Code Size including extra boundary
+            int totalCodeSize = codeSize - sizeof(OMR::CodeCacheMethodHeader) + boundary;
+            j9tty_printf(PORTLIB, "Size Requested:%d\n", totalCodeSize);
+            newCodeStart = allocateSpaceInCodeCache(totalCodeSize);
+            j9tty_printf(PORTLIB, "Address of allocated :%p\n", newCodeStart);
+            // Align newCodeStart
+            newCodeStart = reinterpret_cast<uint8_t*>(OMR::align(reinterpret_cast<size_t>(newCodeStart), boundary));
+            TR_ASSERT_FATAL(OMR::aligned(reinterpret_cast<size_t>(newCodeStart), boundary),
+               "newCodeStart [%p] is not aligned to the specified boundary (%d)", newCodeStart, boundary);
+
             if (newCodeStart)
                {
                TR_ASSERT(_codeCache->isReserved(), "codeCache must be reserved"); // MCT
                newCodeStart = ((U_8*)newCodeStart) - sizeof(OMR::CodeCacheMethodHeader);
+               j9tty_printf(PORTLIB, "newCodeStart after offset:%p\n", newCodeStart);
                // Before copying, memorize the real size of the block returned by the code cache manager
                // and fix it later
                U_32 blockSize = ((OMR::CodeCacheMethodHeader*)newCodeStart)->_size;
+               j9tty_printf(PORTLIB, "BlockSize:%ld\n", blockSize);
+               j9tty_printf(PORTLIB, "newCodeStart:%p tempCodeStart:%p codeSize:%d\n", newCodeStart, tempCodeStart, codeSize);
                memcpy(newCodeStart, tempCodeStart, codeSize);  // the real size may have been overwritten
                ((OMR::CodeCacheMethodHeader*)newCodeStart)->_size = blockSize; // fix it
                // Must fix the pointer to the metadata which is stored in the OMR::CodeCacheMethodHeader
