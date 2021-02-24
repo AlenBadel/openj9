@@ -348,11 +348,8 @@ TR_RelocationRuntime::prepareRelocateAOTCodeAndData(J9VMThread* vmThread,
             // ------------------------- Alignment Prototype
             PORT_ACCESS_FROM_JAVAVM(javaVM());
             // Method Entry Alignment Boundary. Within the JIT, this is defined per codegen
-            // TODO: Replace with a per-architecture defined offset. See getJitMethodEntryAlignmentBoundary
-            // Power - Uses 128.
-            uint32_t boundary = 128;
             // Total Code Size including extra boundary
-            int totalCodeSize = codeSize - sizeof(OMR::CodeCacheMethodHeader) + boundary;
+            int totalCodeSize = codeSize - sizeof(OMR::CodeCacheMethodHeader);
             j9tty_printf(PORTLIB, "Total Size Requested:%d\n", totalCodeSize);
 
             newCodeStart = allocateSpaceInCodeCache(totalCodeSize);
@@ -371,12 +368,12 @@ TR_RelocationRuntime::prepareRelocateAOTCodeAndData(J9VMThread* vmThread,
                U_32 blockSize = ((OMR::CodeCacheMethodHeader*)newCodeStart)->_size;
 
                // Before writing, we need to align the codestart to the memory boundary.
-               j9tty_printf(PORTLIB, "Pre Alignment Block Size:%ld\n", ((OMR::CodeCacheMethodHeader*)newCodeStart)->_size);
-               newCodeStart = reinterpret_cast<uint8_t*>(OMR::align(reinterpret_cast<size_t>(newCodeStart), boundary));
-               j9tty_printf(PORTLIB, "Post Alignment Block Size:%ld\n", ((OMR::CodeCacheMethodHeader*)newCodeStart)->_size);
-               TR_ASSERT_FATAL(OMR::aligned(reinterpret_cast<size_t>(newCodeStart), boundary),
-                  "newCodeStart [%p] is not aligned to the specified boundary (%d)", newCodeStart, boundary);
-               j9tty_printf(PORTLIB, "Address after alignment :%p\n", newCodeStart);
+               //j9tty_printf(PORTLIB, "Pre Alignment Block Size:%ld\n", ((OMR::CodeCacheMethodHeader*)newCodeStart)->_size);
+               //newCodeStart = reinterpret_cast<uint8_t*>(OMR::align(reinterpret_cast<size_t>(newCodeStart), boundary));
+               //j9tty_printf(PORTLIB, "Post Alignment Block Size:%ld\n", ((OMR::CodeCacheMethodHeader*)newCodeStart)->_size);
+               //TR_ASSERT_FATAL(OMR::aligned(reinterpret_cast<size_t>(newCodeStart), boundary),
+               //   "newCodeStart [%p] is not aligned to the specified boundary (%d)", newCodeStart, boundary);
+               //j9tty_printf(PORTLIB, "Address after alignment :%p\n", newCodeStart);
 
                // Write
                j9tty_printf(PORTLIB, "newCodeStart:%p tempCodeStart:%p codeSize:%d\n", newCodeStart, tempCodeStart, codeSize);

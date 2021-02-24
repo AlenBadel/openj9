@@ -219,7 +219,9 @@ J9JITConfig * codert_onload(J9JavaVM * javaVM)
       }
 
    /* Should use portlib */
-#if defined(TR_HOST_X86)
+#if defined(TR_HOST_POWER)
+   jitConfig->codeCacheAlignment = 64;
+#elif defined(TR_HOST_X86)
    jitConfig->codeCacheAlignment = 32;
 #elif defined(TR_HOST_S390)
    // On IBM Z, it can generate load and store quadword instructions from 
