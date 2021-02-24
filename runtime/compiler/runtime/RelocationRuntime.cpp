@@ -353,19 +353,20 @@ TR_RelocationRuntime::prepareRelocateAOTCodeAndData(J9VMThread* vmThread,
             uint32_t boundary = 128;
             // Total Code Size including extra boundary
             int totalCodeSize = codeSize - sizeof(OMR::CodeCacheMethodHeader) + boundary;
-            j9tty_printf(PORTLIB, "Size Requested:%d\n", totalCodeSize);
+            j9tty_printf(PORTLIB, "Total Size Requested:%d\n", totalCodeSize);
             newCodeStart = allocateSpaceInCodeCache(totalCodeSize);
             j9tty_printf(PORTLIB, "Address of allocated :%p\n", newCodeStart);
             // Align newCodeStart
             newCodeStart = reinterpret_cast<uint8_t*>(OMR::align(reinterpret_cast<size_t>(newCodeStart), boundary));
             TR_ASSERT_FATAL(OMR::aligned(reinterpret_cast<size_t>(newCodeStart), boundary),
                "newCodeStart [%p] is not aligned to the specified boundary (%d)", newCodeStart, boundary);
+            j9tty_printf(PORTLIB, "Address after alignment :%p\n", newCodeStart);
 
             if (newCodeStart)
                {
                TR_ASSERT(_codeCache->isReserved(), "codeCache must be reserved"); // MCT
                newCodeStart = ((U_8*)newCodeStart) - sizeof(OMR::CodeCacheMethodHeader);
-               j9tty_printf(PORTLIB, "newCodeStart after offset:%p\n", newCodeStart);
+               j9tty_printf(PORTLIB, "newCodeStart after codecache method header:%p\n", newCodeStart);
                // Before copying, memorize the real size of the block returned by the code cache manager
                // and fix it later
                U_32 blockSize = ((OMR::CodeCacheMethodHeader*)newCodeStart)->_size;
