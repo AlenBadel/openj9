@@ -361,12 +361,16 @@ TR_RelocationRuntime::prepareRelocateAOTCodeAndData(J9VMThread* vmThread,
             if (newCodeStart)
                {
                TR_ASSERT(_codeCache->isReserved(), "codeCache must be reserved"); // MCT
+
+               // Access and store the actual size of the block allocated from the codecache method header. 
+               // The newcodestart provided was pointing right after the code cache method header. 
                newCodeStart = ((U_8*)newCodeStart) - sizeof(OMR::CodeCacheMethodHeader);
-               j9tty_printf(PORTLIB, "newCodeStart after codecache method header:%p\n", newCodeStart);
-               // Before copying, memorize the real size of the block returned by the code cache manager
-               // and fix it later
+               j9tty_printf(PORTLIB, "newCodeStart at the codecache method header:%p\n", newCodeStart);
+
+               // Save the actual size of the block allocated, so it can be updated once the memory is overwirtten by the method at tempCodeStart.
                U_32 blockSize = ((OMR::CodeCacheMethodHeader*)newCodeStart)->_size;
-               // Align newCodeStart
+
+               // Before writing, we need to align the codestart to the memory boundary.
                j9tty_printf(PORTLIB, "Pre Alignment Block Size:%ld\n", ((OMR::CodeCacheMethodHeader*)newCodeStart)->_size);
                newCodeStart = reinterpret_cast<uint8_t*>(OMR::align(reinterpret_cast<size_t>(newCodeStart), boundary));
                j9tty_printf(PORTLIB, "Post Alignment Block Size:%ld\n", ((OMR::CodeCacheMethodHeader*)newCodeStart)->_size);
@@ -374,8 +378,10 @@ TR_RelocationRuntime::prepareRelocateAOTCodeAndData(J9VMThread* vmThread,
                   "newCodeStart [%p] is not aligned to the specified boundary (%d)", newCodeStart, boundary);
                j9tty_printf(PORTLIB, "Address after alignment :%p\n", newCodeStart);
 
+               // Write
                j9tty_printf(PORTLIB, "newCodeStart:%p tempCodeStart:%p codeSize:%d\n", newCodeStart, tempCodeStart, codeSize);
                memcpy(newCodeStart, tempCodeStart, codeSize);  // the real size may have been overwritten
+               // Update size
                ((OMR::CodeCacheMethodHeader*)newCodeStart)->_size = blockSize; // fix it
                // Must fix the pointer to the metadata which is stored in the OMR::CodeCacheMethodHeader
                ((OMR::CodeCacheMethodHeader*)newCodeStart)->_metaData = _exceptionTable;
