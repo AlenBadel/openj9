@@ -368,9 +368,9 @@ TR_RelocationRuntime::prepareRelocateAOTCodeAndData(J9VMThread* vmThread,
                U_32 blockSize = ((OMR::CodeCacheMethodHeader*)newCodeStart)->_size;
 
                // Before writing, we need to align the codestart to the memory boundary.
-               //j9tty_printf(PORTLIB, "Pre Alignment Block Size:%ld\n", ((OMR::CodeCacheMethodHeader*)newCodeStart)->_size);
-               //newCodeStart = reinterpret_cast<uint8_t*>(OMR::align(reinterpret_cast<size_t>(newCodeStart), boundary));
-               //j9tty_printf(PORTLIB, "Post Alignment Block Size:%ld\n", ((OMR::CodeCacheMethodHeader*)newCodeStart)->_size);
+               j9tty_printf(PORTLIB, "Pre Alignment Block Size:%ld\n", ((OMR::CodeCacheMethodHeader*)newCodeStart)->_size);
+               newCodeStart = reinterpret_cast<uint8_t*>(OMR::align(reinterpret_cast<size_t>(newCodeStart), 64));
+               j9tty_printf(PORTLIB, "Post Alignment Block Size:%ld\n", ((OMR::CodeCacheMethodHeader*)newCodeStart)->_size);
                //TR_ASSERT_FATAL(OMR::aligned(reinterpret_cast<size_t>(newCodeStart), boundary),
                //   "newCodeStart [%p] is not aligned to the specified boundary (%d)", newCodeStart, boundary);
                //j9tty_printf(PORTLIB, "Address after alignment :%p\n", newCodeStart);
